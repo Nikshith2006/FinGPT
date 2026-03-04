@@ -253,93 +253,94 @@ def dashboard():
         expenses.to_csv("expenses.csv",index=False)
         st.rerun()
 
-    # ---------------- VOICE ENTRY ----------------
+# ---------------- VOICE ENTRY ----------------
+
 if st.session_state.user:
+
     st.subheader("🎤 Smart Voice Entry")
 
-record_placeholder = st.empty()
+    record_placeholder = st.empty()
 
-audio = mic_recorder(
-    start_prompt="🎙️ Start Recording",
-    stop_prompt="⏹ Stop Recording",
-    just_once=True,
-    use_container_width=True
-)
+    audio = mic_recorder(
+        start_prompt="🎙 Start Recording",
+        stop_prompt="⏹ Stop Recording",
+        just_once=True,
+        use_container_width=True
+    )
 
-if audio:
-
-    try:
-
-        record_placeholder.markdown(
-        """
-        <div style="text-align:center;font-size:30px;color:green;">
-        ✅ Recording Finished
-        </div>
-        """,
-        unsafe_allow_html=True
-        )
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            tmp.write(audio["bytes"])
-            audio_path = tmp.name
-
-        recognizer = sr.Recognizer()
-
-        with sr.AudioFile(audio_path) as source:
-            audio_data = recognizer.record(source)
+    if audio:
 
         try:
-            text = recognizer.recognize_google(audio_data)
-        except:
-            st.error("Could not understand audio.")
-            st.stop()
 
-        st.success(f"You said: {text}")
+            record_placeholder.markdown(
+            """
+            <div style="text-align:center;font-size:30px;color:green;">
+            ✅ Recording Finished
+            </div>
+            """,
+            unsafe_allow_html=True
+            )
 
-        detected_date = detect_spoken_date(text)
-        text_lower = text.lower()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                tmp.write(audio["bytes"])
+                audio_path = tmp.name
 
-        amount_match = re.search(r"\d+", text_lower)
-        amount = int(amount_match.group()) if amount_match else 0
+            recognizer = sr.Recognizer()
 
-        if any(word in text_lower for word in ["food","dinner","lunch","breakfast"]):
-            category = "Food"
-        elif "rent" in text_lower:
-            category = "Rent"
-        elif any(word in text_lower for word in ["shopping","buy","clothes"]):
-            category = "Shopping"
-        elif any(word in text_lower for word in ["travel","trip"]):
-            category = "Travel"
-        elif any(word in text_lower for word in ["movie","entertainment"]):
-            category = "Entertainment"
-        elif any(word in text_lower for word in ["bus","metro","ticket"]):
-            category = "Transport"
-        else:
-            category = "Food"
+            with sr.AudioFile(audio_path) as source:
+                audio_data = recognizer.record(source)
 
-        if amount == 0:
-            st.error("Could not detect amount.")
-            st.stop()
+            try:
+                text = recognizer.recognize_google(audio_data)
+            except:
+                st.error("Could not understand audio.")
+                st.stop()
 
-        new_row = pd.DataFrame({
-            "Date":[detected_date],
-            "Category":[category],
-            "Amount":[amount],
-            "Description":[text],
-            "User":[st.session_state.user]
-        })
+            st.success(f"You said: {text}")
 
-        expenses = pd.concat([expenses,new_row],ignore_index=True)
-        expenses.to_csv("expenses.csv",index=False)
+            detected_date = detect_spoken_date(text)
+            text_lower = text.lower()
 
-        st.success("Expense Added Successfully!")
-        st.rerun()
+            amount_match = re.search(r"\d+", text_lower)
+            amount = int(amount_match.group()) if amount_match else 0
 
-    except Exception as e:
-        st.error("Voice feature failed")
-        st.write(e)
+            if any(word in text_lower for word in ["food","dinner","lunch","breakfast"]):
+                category = "Food"
+            elif "rent" in text_lower:
+                category = "Rent"
+            elif any(word in text_lower for word in ["shopping","buy","clothes"]):
+                category = "Shopping"
+            elif any(word in text_lower for word in ["travel","trip"]):
+                category = "Travel"
+            elif any(word in text_lower for word in ["movie","entertainment"]):
+                category = "Entertainment"
+            elif any(word in text_lower for word in ["bus","metro","ticket"]):
+                category = "Transport"
+            else:
+                category = "Food"
 
+            if amount == 0:
+                st.error("Could not detect amount.")
+                st.stop()
 
+            new_row = pd.DataFrame({
+                "Date":[detected_date],
+                "Category":[category],
+                "Amount":[amount],
+                "Description":[text],
+                "User":[st.session_state.user]
+            })
+
+            expenses = pd.concat([expenses,new_row],ignore_index=True)
+            expenses.to_csv("expenses.csv",index=False)
+
+            st.success("Expense Added Successfully!")
+            st.rerun()
+
+        except Exception as e:
+            st.error("Voice feature failed")
+            st.write(e)
+    
     # ---------------- ASK FINGPT ----------------
     st.subheader("🤖 AI Financial Assistant")
 
@@ -462,6 +463,7 @@ if st.session_state.user is None:
 else:
 
     dashboard()
+
 
 
 
