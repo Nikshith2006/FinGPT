@@ -18,16 +18,6 @@ from streamlit_oauth import OAuth2Component
 st.set_page_config(page_title="FinGPT", layout="wide")
 load_dotenv()
 
-st.markdown("""
-<style>
-div.stButton > button {
-    border-radius: 10px;
-    height: 3em;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
-
 client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
 GOOGLE_CLIENT_ID = st.secrets["GOOGLE_CLIENT_ID"]
@@ -103,7 +93,6 @@ def login():
         existing_user = users[(users["Name"] == name) & (users["Contact"] == contact)]
 
         if existing_user.empty:
-
             new_user = pd.DataFrame({
                 "Name":[name],
                 "Contact":[contact],
@@ -177,7 +166,6 @@ def dashboard():
     users.loc[users["Name"] == st.session_state.user,["MonthlyIncome","MonthlyBudget"]] = [income,budget]
     users.to_csv("users.csv",index=False)
 
-    # -------- Add Expense --------
     st.sidebar.header("➕ Add Expense")
 
     with st.sidebar.form("add_expense"):
@@ -203,10 +191,10 @@ def dashboard():
 
             st.rerun()
 
-    # -------- VOICE ENTRY --------
-    st.subheader("🎤 Smart Voice Entry")
+    # -------- Voice Entry --------
+    st.subheader("🎤 Voice Entry")
 
-    audio = mic_recorder(start_prompt="🎙 Start Recording",stop_prompt="⏹ Stop Recording",just_once=True)
+    audio = mic_recorder(start_prompt="🎙 Start Recording", stop_prompt="⏹ Stop Recording", just_once=True)
 
     if audio:
 
@@ -222,6 +210,26 @@ def dashboard():
         text = recognizer.recognize_google(audio_data)
 
         st.success(f"You said: {text}")
+
+    # -------- AI Assistant --------
+    st.subheader("🤖 AI Financial Assistant")
+
+    question = st.text_input("Ask about your finances")
+
+    if question:
+
+        context = f"""
+        Income: {income}
+        Budget: {budget}
+        Total Spent: {df['Amount'].sum()}
+        """
+
+        reply = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=context + question
+        )
+
+        st.write(reply.text)
 
     if df.empty:
         st.warning("No expense data available.")
@@ -255,11 +263,21 @@ def dashboard():
     # -------- Expense Table --------
     st.subheader("📋 Expense Table")
 
-    df_display = df.reset_index(drop=True)
-    df_display.index = df_display.index + 1
-    df_display.index.name="S.No"
+    for i,row in df.reset_index().iterrows():
 
-    st.dataframe(df_display[["Date","Category","Amount","Description"]])
+        c1,c2,c3,c4,c5 = st.columns([2,2,1,3,1])
+
+        c1.write(row["Date"].date())
+        c2.write(row["Category"])
+        c3.write(row["Amount"])
+        c4.write(row["Description"])
+
+        if c5.button("🗑",key=i):
+
+            expenses = expenses.drop(row["index"])
+            expenses.to_csv("expenses.csv",index=False)
+
+            st.rerun()
 
     # -------- Charts --------
     st.subheader("📊 Category Distribution")
@@ -286,7 +304,32 @@ def dashboard():
     monthly.plot(marker="o",ax=ax3)
     st.pyplot(fig3)
 
-    # -------- Suggestions --------
+    # -------- Month End Prediction --------
+    st.subheader("🔮 Month-End Prediction")
+
+    cum = df.groupby(df["Date"].dt.day)["Amount"].sum().cumsum()
+
+    if len(cum)>1:
+
+        X = np.array(cum.index).reshape(-1,1)
+        y = cum.values
+
+        model = LinearRegression()
+        model.fit(X,y)
+
+        future_days = np.array(range(1,31)).reshape(-1,1)
+        predictions = model.predict(future_days)
+
+        fig4,ax4 = plt.subplots()
+
+        ax4.plot(cum.index,y,label="Actual Spending")
+        ax4.plot(range(1,31),predictions,"--",label="Prediction")
+
+        ax4.legend()
+
+        st.pyplot(fig4)
+
+    # -------- Smart Suggestions --------
     st.subheader("🤖 Smart Suggestions")
 
     highest = cat.idxmax()
