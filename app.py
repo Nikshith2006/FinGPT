@@ -19,7 +19,6 @@ from streamlit_oauth import OAuth2Component
 st.set_page_config(page_title="FinGPT", layout="wide")
 load_dotenv()
 
-# Professional Button Styling
 st.markdown("""
 <style>
 div.stButton > button {
@@ -30,14 +29,14 @@ div.stButton > button {
 </style>
 """, unsafe_allow_html=True)
 
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
- 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+# Gemini API
+client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
+
+GOOGLE_CLIENT_ID = st.secrets["GOOGLE_CLIENT_ID"]
+GOOGLE_CLIENT_SECRET = st.secrets["GOOGLE_CLIENT_SECRET"]
 
 AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
-REFRESH_TOKEN_URL = TOKEN_URL
 
 oauth2 = OAuth2Component(
     GOOGLE_CLIENT_ID,
@@ -50,8 +49,7 @@ oauth2 = OAuth2Component(
 # ---------------- FILE SETUP ----------------
 if not os.path.exists("users.csv"):
     pd.DataFrame(columns=[
-        "Name","Contact",
-        "MonthlyIncome","MonthlyBudget"
+        "Name","Contact","MonthlyIncome","MonthlyBudget"
     ]).to_csv("users.csv", index=False)
 
 if not os.path.exists("expenses.csv"):
@@ -71,11 +69,10 @@ def detect_spoken_date(text):
     text = text.lower()
     today = datetime.today()
 
-    if "day before yesterday" in text:
-        return (today - timedelta(days=2)).strftime("%Y-%m-%d")
-    elif "yesterday" in text:
+    if "yesterday" in text:
         return (today - timedelta(days=1)).strftime("%Y-%m-%d")
-    elif "today" in text:
+
+    if "today" in text:
         return today.strftime("%Y-%m-%d")
 
     match = re.search(r"(\d+)\s+days?\s+ago", text)
@@ -91,24 +88,20 @@ def detect_spoken_date(text):
 # ---------------- LOGIN PAGE ----------------
 def login():
 
-    st.markdown(
-    """
+    st.markdown("""
     <h1 style='text-align:center;'>🔐 FinGPT</h1>
     <p style='text-align:center;color:gray;font-size:18px;'>
     Smart Personal Finance Assistant
     </p>
-    """,
-    unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
     users = pd.read_csv("users.csv")
 
-    col1, col2, col3 = st.columns([1,2,1])
+    col1,col2,col3 = st.columns([1,2,1])
 
     with col2:
 
         name = st.text_input("👤 Name")
-
         contact = st.text_input("📧 Email or Phone")
 
         if st.button("Login", use_container_width=True):
@@ -123,7 +116,6 @@ def login():
                 st.rerun()
 
             else:
-
                 new_user = pd.DataFrame({
                     "Name":[name],
                     "Contact":[contact],
@@ -137,19 +129,12 @@ def login():
                 st.session_state.user = name
                 st.rerun()
 
-        st.markdown(
-        """
-        <div style="text-align:center;margin:25px 0;color:gray;">
-        ───────────── OR ─────────────
-        </div>
-        """,
-        unsafe_allow_html=True
-        )
+        st.markdown("<div style='text-align:center;margin:25px'>──── OR ────</div>", unsafe_allow_html=True)
 
         result = oauth2.authorize_button(
             name="Login with Google",
             icon="https://www.google.com/favicon.ico",
-            redirect_uri="http://localhost:8501",
+            redirect_uri="https://fingpt20.streamlit.app",
             scope="openid email profile",
             key="google",
         )
@@ -165,8 +150,6 @@ def login():
 
             name = userinfo["name"]
             email = userinfo["email"]
-
-            users = pd.read_csv("users.csv")
 
             existing_user = users[
                 (users["Name"] == name) &
@@ -205,22 +188,15 @@ def dashboard():
         st.title(f"💼 FinGPT Dashboard | Welcome {st.session_state.user}")
 
     with col2:
-        if st.button("🚪 Logout", help="Sign out from FinGPT"):
+        if st.button("🚪 Logout"):
             st.session_state.user = None
             st.rerun()
 
     # ---------------- SIDEBAR ----------------
     st.sidebar.title("⚙️ Financial Settings")
 
-    income = st.sidebar.number_input(
-        "💰 Monthly Income",
-        value=int(user_data["MonthlyIncome"])
-    )
-
-    budget = st.sidebar.number_input(
-        "📊 Monthly Budget",
-        value=int(user_data["MonthlyBudget"])
-    )
+    income = st.sidebar.number_input("💰 Monthly Income", value=int(user_data["MonthlyIncome"]))
+    budget = st.sidebar.number_input("📊 Monthly Budget", value=int(user_data["MonthlyBudget"]))
 
     users.loc[
         users["Name"] == st.session_state.user,
@@ -229,19 +205,14 @@ def dashboard():
 
     users.to_csv("users.csv",index=False)
 
-    st.sidebar.divider()
-    st.sidebar.subheader("➕ Add New Expense")
+    st.sidebar.subheader("➕ Add Expense")
 
-    exp_date = st.sidebar.date_input("📅 Date", datetime.today())
-    exp_cat = st.sidebar.selectbox(
-        "🏷 Category",
-        ["Food","Rent","Shopping",
-         "Travel","Entertainment","Transport"]
-    )
-    exp_amt = st.sidebar.number_input("💵 Amount", min_value=1)
-    exp_desc = st.sidebar.text_input("📝 Description")
+    exp_date = st.sidebar.date_input("Date", datetime.today())
+    exp_cat = st.sidebar.selectbox("Category",["Food","Rent","Shopping","Travel","Entertainment","Transport"])
+    exp_amt = st.sidebar.number_input("Amount",min_value=1)
+    exp_desc = st.sidebar.text_input("Description")
 
-    if st.sidebar.button("➕ Add Expense"):
+    if st.sidebar.button("Add Expense"):
         new_row = pd.DataFrame({
             "Date":[exp_date.strftime("%Y-%m-%d")],
             "Category":[exp_cat],
@@ -253,13 +224,8 @@ def dashboard():
         expenses.to_csv("expenses.csv",index=False)
         st.rerun()
 
-# ---------------- VOICE ENTRY ----------------
-
-if st.session_state.user:
-
+    # ---------------- VOICE ENTRY ----------------
     st.subheader("🎤 Smart Voice Entry")
-
-    record_placeholder = st.empty()
 
     audio = mic_recorder(
         start_prompt="🎙 Start Recording",
@@ -272,16 +238,9 @@ if st.session_state.user:
 
         try:
 
-            record_placeholder.markdown(
-            """
-            <div style="text-align:center;font-size:30px;color:green;">
-            ✅ Recording Finished
-            </div>
-            """,
-            unsafe_allow_html=True
-            )
+            st.success("✅ Recording Finished")
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 tmp.write(audio["bytes"])
                 audio_path = tmp.name
 
@@ -290,11 +249,7 @@ if st.session_state.user:
             with sr.AudioFile(audio_path) as source:
                 audio_data = recognizer.record(source)
 
-            try:
-                text = recognizer.recognize_google(audio_data)
-            except:
-                st.error("Could not understand audio.")
-                st.stop()
+            text = recognizer.recognize_google(audio_data)
 
             st.success(f"You said: {text}")
 
@@ -304,17 +259,17 @@ if st.session_state.user:
             amount_match = re.search(r"\d+", text_lower)
             amount = int(amount_match.group()) if amount_match else 0
 
-            if any(word in text_lower for word in ["food","dinner","lunch","breakfast"]):
+            if "food" in text_lower:
                 category = "Food"
             elif "rent" in text_lower:
                 category = "Rent"
-            elif any(word in text_lower for word in ["shopping","buy","clothes"]):
+            elif "shopping" in text_lower:
                 category = "Shopping"
-            elif any(word in text_lower for word in ["travel","trip"]):
+            elif "travel" in text_lower:
                 category = "Travel"
-            elif any(word in text_lower for word in ["movie","entertainment"]):
+            elif "movie" in text_lower:
                 category = "Entertainment"
-            elif any(word in text_lower for word in ["bus","metro","ticket"]):
+            elif "bus" in text_lower:
                 category = "Transport"
             else:
                 category = "Food"
@@ -340,71 +295,46 @@ if st.session_state.user:
         except Exception as e:
             st.error("Voice feature failed")
             st.write(e)
-    
-    # ---------------- ASK FINGPT ----------------
+
+    # ---------------- AI ASSISTANT ----------------
     st.subheader("🤖 AI Financial Assistant")
 
     question = st.text_input("Ask about your finances")
 
     if question:
+
         context = f"""
         Income: {income}
         Budget: {budget}
         Total Spent: {user_expenses['Amount'].sum()}
         """
+
         reply = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=context + question
         )
+
         st.write(reply.text)
 
-    st.divider()
-
-    # ---------------- TABLE ----------------
+    # ---------------- EXPENSE TABLE ----------------
     st.subheader("📊 Expense Manager")
-
-    col1,col2 = st.columns([9,1])
-
-    with col2:
-        if st.button("✏️"):
-            st.session_state.edit_mode = not st.session_state.edit_mode
 
     df = expenses[expenses["User"] == st.session_state.user].copy()
 
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df["Date"] = df["Date"].fillna(datetime.today())
-    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
+    for i,row in df.reset_index().iterrows():
 
-    if st.session_state.edit_mode:
+        cols = st.columns([2,2,1,3,1])
 
-        edited = st.data_editor(
-            df[["Date","Category","Amount","Description"]],
-            use_container_width=True
-        )
+        cols[0].write(row["Date"])
+        cols[1].write(row["Category"])
+        cols[2].write(row["Amount"])
+        cols[3].write(row["Description"])
 
-        if st.button("💾 Save Changes"):
-            expenses.loc[df.index,
-                         ["Date","Category","Amount","Description"]] = edited
-            expenses.to_csv("expenses.csv", index=False)
-            st.session_state.edit_mode = False
+        if cols[4].button("🗑️",key=i):
+
+            expenses = expenses.drop(row["index"])
+            expenses.to_csv("expenses.csv",index=False)
             st.rerun()
-
-    else:
-
-        for i,row in df.reset_index().iterrows():
-
-            cols = st.columns([2,2,1,3,1])
-
-            cols[0].write(row["Date"])
-            cols[1].write(row["Category"])
-            cols[2].write(row["Amount"])
-            cols[3].write(row["Description"])
-
-            if cols[4].button("🗑️", key=f"del{i}"):
-
-                expenses = expenses.drop(row["index"])
-                expenses.to_csv("expenses.csv", index=False)
-                st.rerun()
 
     # ---------------- METRICS ----------------
     total = user_expenses["Amount"].sum()
@@ -412,62 +342,22 @@ if st.session_state.user:
 
     m1,m2,m3 = st.columns(3)
 
-    m1.metric("💰 Income",f"₹ {income}")
-    m2.metric("💸 Spent",f"₹ {total}")
-    m3.metric("🏦 Savings",f"₹ {savings}")
+    m1.metric("Income",f"₹{income}")
+    m2.metric("Spent",f"₹{total}")
+    m3.metric("Savings",f"₹{savings}")
 
     # ---------------- CHARTS ----------------
-    st.subheader("📊 Category Distribution")
+    st.subheader("Category Distribution")
 
     cat = user_expenses.groupby("Category")["Amount"].sum()
 
     if not cat.empty:
-        fig1,ax1 = plt.subplots()
-        ax1.pie(cat,labels=cat.index,autopct="%1.1f%%")
-        st.pyplot(fig1)
-
-    st.subheader("📈 Daily Spending")
-
-    daily = user_expenses.groupby(
-        user_expenses["Date"].dt.date
-    )["Amount"].sum()
-
-    if not daily.empty:
-        fig2,ax2 = plt.subplots()
-        daily.plot(kind="bar",ax=ax2)
-        st.pyplot(fig2)
-
-    st.subheader("🔮 Month-End Prediction")
-
-    cum = user_expenses.groupby(
-        user_expenses["Date"].dt.day
-    )["Amount"].sum().cumsum()
-
-    if len(cum) > 1:
-        X = np.array(cum.index).reshape(-1,1)
-        y = cum.values
-        model = LinearRegression()
-        model.fit(X,y)
-
-        future = np.array(range(1,31)).reshape(-1,1)
-        pred = model.predict(future)
-
-        fig3,ax3 = plt.subplots()
-        ax3.plot(cum.index,y)
-        ax3.plot(range(1,31),pred,linestyle="--")
-        st.pyplot(fig3)
+        fig,ax = plt.subplots()
+        ax.pie(cat,labels=cat.index,autopct="%1.1f%%")
+        st.pyplot(fig)
 
 # ---------------- MAIN ----------------
 if st.session_state.user is None:
     login()
 else:
-
     dashboard()
-
-
-
-
-
-
-
-
