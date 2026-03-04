@@ -254,7 +254,7 @@ def dashboard():
         st.rerun()
 
     # ---------------- VOICE ENTRY ----------------
-    if st.session_state.user:
+if st.session_state.user:
     st.subheader("🎤 Smart Voice Entry")
 
 record_placeholder = st.empty()
@@ -338,6 +338,7 @@ if audio:
     except Exception as e:
         st.error("Voice feature failed")
         st.write(e)
+
 
     # ---------------- ASK FINGPT ----------------
     st.subheader("🤖 AI Financial Assistant")
@@ -461,6 +462,7 @@ if st.session_state.user is None:
 else:
 
     dashboard()
+
 
 
 
