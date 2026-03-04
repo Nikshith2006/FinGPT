@@ -7,7 +7,6 @@ from sklearn.linear_model import LinearRegression
 from dotenv import load_dotenv
 import os
 import tempfile
-import json
 import re
 from dateutil import parser as date_parser
 from streamlit_mic_recorder import mic_recorder
@@ -29,7 +28,6 @@ div.stButton > button {
 </style>
 """, unsafe_allow_html=True)
 
-# Gemini API
 client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
 GOOGLE_CLIENT_ID = st.secrets["GOOGLE_CLIENT_ID"]
@@ -48,14 +46,10 @@ oauth2 = OAuth2Component(
 
 # ---------------- FILE SETUP ----------------
 if not os.path.exists("users.csv"):
-    pd.DataFrame(columns=[
-        "Name","Contact","MonthlyIncome","MonthlyBudget"
-    ]).to_csv("users.csv", index=False)
+    pd.DataFrame(columns=["Name","Contact","MonthlyIncome","MonthlyBudget"]).to_csv("users.csv", index=False)
 
 if not os.path.exists("expenses.csv"):
-    pd.DataFrame(columns=[
-        "Date","Category","Amount","Description","User"
-    ]).to_csv("expenses.csv", index=False)
+    pd.DataFrame(columns=["Date","Category","Amount","Description","User"]).to_csv("expenses.csv", index=False)
 
 # ---------------- SESSION ----------------
 if "user" not in st.session_state:
@@ -106,16 +100,14 @@ def login():
 
         if st.button("Login", use_container_width=True):
 
-            existing_user = users[
-                (users["Name"] == name) &
-                (users["Contact"] == contact)
-            ]
+            existing_user = users[(users["Name"] == name) & (users["Contact"] == contact)]
 
             if not existing_user.empty:
                 st.session_state.user = name
                 st.rerun()
 
             else:
+
                 new_user = pd.DataFrame({
                     "Name":[name],
                     "Contact":[contact],
@@ -151,10 +143,7 @@ def login():
             name = userinfo["name"]
             email = userinfo["email"]
 
-            existing_user = users[
-                (users["Name"] == name) &
-                (users["Contact"] == email)
-            ]
+            existing_user = users[(users["Name"] == name) & (users["Contact"] == email)]
 
             if existing_user.empty:
 
@@ -198,11 +187,7 @@ def dashboard():
     income = st.sidebar.number_input("💰 Monthly Income", value=int(user_data["MonthlyIncome"]))
     budget = st.sidebar.number_input("📊 Monthly Budget", value=int(user_data["MonthlyBudget"]))
 
-    users.loc[
-        users["Name"] == st.session_state.user,
-        ["MonthlyIncome","MonthlyBudget"]
-    ] = [income,budget]
-
+    users.loc[users["Name"] == st.session_state.user,["MonthlyIncome","MonthlyBudget"]] = [income,budget]
     users.to_csv("users.csv",index=False)
 
     st.sidebar.subheader("➕ Add Expense")
@@ -213,6 +198,7 @@ def dashboard():
     exp_desc = st.sidebar.text_input("Description")
 
     if st.sidebar.button("Add Expense"):
+
         new_row = pd.DataFrame({
             "Date":[exp_date.strftime("%Y-%m-%d")],
             "Category":[exp_cat],
@@ -220,6 +206,7 @@ def dashboard():
             "Description":[exp_desc],
             "User":[st.session_state.user]
         })
+
         expenses = pd.concat([expenses,new_row],ignore_index=True)
         expenses.to_csv("expenses.csv",index=False)
         st.rerun()
@@ -240,7 +227,7 @@ def dashboard():
 
             st.success("✅ Recording Finished")
 
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
                 tmp.write(audio["bytes"])
                 audio_path = tmp.name
 
@@ -347,7 +334,7 @@ def dashboard():
     m3.metric("Savings",f"₹{savings}")
 
     # ---------------- CHARTS ----------------
-    st.subheader("Category Distribution")
+    st.subheader("📊 Category Distribution")
 
     cat = user_expenses.groupby("Category")["Amount"].sum()
 
@@ -355,6 +342,38 @@ def dashboard():
         fig,ax = plt.subplots()
         ax.pie(cat,labels=cat.index,autopct="%1.1f%%")
         st.pyplot(fig)
+
+    # ---------------- DAILY SPENDING ----------------
+    st.subheader("📈 Daily Spending")
+
+    daily = user_expenses.groupby(user_expenses["Date"].dt.date)["Amount"].sum()
+
+    if not daily.empty:
+        fig2, ax2 = plt.subplots()
+        daily.plot(kind="bar", ax=ax2)
+        st.pyplot(fig2)
+
+    # ---------------- MONTH-END PREDICTION ----------------
+    st.subheader("🔮 Month-End Prediction")
+
+    cum = user_expenses.groupby(user_expenses["Date"].dt.day)["Amount"].sum().cumsum()
+
+    if len(cum) > 1:
+
+        X = np.array(cum.index).reshape(-1,1)
+        y = cum.values
+
+        model = LinearRegression()
+        model.fit(X,y)
+
+        future_days = np.array(range(1,31)).reshape(-1,1)
+        predictions = model.predict(future_days)
+
+        fig3, ax3 = plt.subplots()
+        ax3.plot(cum.index, y)
+        ax3.plot(range(1,31), predictions, linestyle="--")
+
+        st.pyplot(fig3)
 
 # ---------------- MAIN ----------------
 if st.session_state.user is None:
