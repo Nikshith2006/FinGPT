@@ -55,8 +55,6 @@ if not os.path.exists("expenses.csv"):
 if "user" not in st.session_state:
     st.session_state.user = None
 
-if "edit_mode" not in st.session_state:
-    st.session_state.edit_mode = False
 
 # ---------------- DATE DETECTION ----------------
 def detect_spoken_date(text):
@@ -79,86 +77,83 @@ def detect_spoken_date(text):
     except:
         return today.strftime("%Y-%m-%d")
 
-# ---------------- LOGIN PAGE ----------------
+
+# ---------------- HEALTH SCORE ----------------
+def calculate_health_score(income, spent):
+    if income == 0:
+        return 300
+    ratio = spent / income
+    score = 900 - int(ratio * 600)
+    return max(300, min(score, 900))
+
+
+# ---------------- LOGIN ----------------
 def login():
 
-    st.markdown("""
-    <h1 style='text-align:center;'>🔐 FinGPT</h1>
-    <p style='text-align:center;color:gray;font-size:18px;'>
-    Smart Personal Finance Assistant
-    </p>
-    """, unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;color:#00f5d4;'>🔐 FinGPT</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align:center;'>Smart Personal Finance Assistant</h4>", unsafe_allow_html=True)
 
     users = pd.read_csv("users.csv")
 
-    col1,col2,col3 = st.columns([1,2,1])
+    name = st.text_input("👤 Name")
+    contact = st.text_input("📧 Email or Phone")
 
-    with col2:
+    if st.button("Login"):
 
-        name = st.text_input("👤 Name")
-        contact = st.text_input("📧 Email or Phone")
+        existing_user = users[(users["Name"] == name) & (users["Contact"] == contact)]
 
-        if st.button("Login", use_container_width=True):
+        if existing_user.empty:
 
-            existing_user = users[(users["Name"] == name) & (users["Contact"] == contact)]
+            new_user = pd.DataFrame({
+                "Name":[name],
+                "Contact":[contact],
+                "MonthlyIncome":[0],
+                "MonthlyBudget":[0]
+            })
 
-            if not existing_user.empty:
-                st.session_state.user = name
-                st.rerun()
+            users = pd.concat([users,new_user],ignore_index=True)
+            users.to_csv("users.csv",index=False)
 
-            else:
+        st.session_state.user = name
+        st.rerun()
 
-                new_user = pd.DataFrame({
-                    "Name":[name],
-                    "Contact":[contact],
-                    "MonthlyIncome":[0],
-                    "MonthlyBudget":[0]
-                })
+    st.markdown("### OR")
 
-                users = pd.concat([users,new_user],ignore_index=True)
-                users.to_csv("users.csv",index=False)
+    result = oauth2.authorize_button(
+        name="Login with Google",
+        icon="https://www.google.com/favicon.ico",
+        redirect_uri="https://fingpt20.streamlit.app",
+        scope="openid email profile",
+        key="google"
+    )
 
-                st.session_state.user = name
-                st.rerun()
+    if result and "token" in result:
 
-        st.markdown("<div style='text-align:center;margin:25px'>──── OR ────</div>", unsafe_allow_html=True)
+        import requests
 
-        result = oauth2.authorize_button(
-            name="Login with Google",
-            icon="https://www.google.com/favicon.ico",
-            redirect_uri="https://fingpt20.streamlit.app",
-            scope="openid email profile",
-            key="google",
-        )
+        userinfo = requests.get(
+            "https://www.googleapis.com/oauth2/v1/userinfo",
+            headers={"Authorization": f"Bearer {result['token']['access_token']}"},
+        ).json()
 
-        if result and "token" in result:
+        name = userinfo["name"]
+        email = userinfo["email"]
 
-            import requests
+        if not ((users["Name"] == name) & (users["Contact"] == email)).any():
 
-            userinfo = requests.get(
-                "https://www.googleapis.com/oauth2/v1/userinfo",
-                headers={"Authorization": f"Bearer {result['token']['access_token']}"},
-            ).json()
+            new_user = pd.DataFrame({
+                "Name":[name],
+                "Contact":[email],
+                "MonthlyIncome":[0],
+                "MonthlyBudget":[0]
+            })
 
-            name = userinfo["name"]
-            email = userinfo["email"]
+            users = pd.concat([users,new_user],ignore_index=True)
+            users.to_csv("users.csv",index=False)
 
-            existing_user = users[(users["Name"] == name) & (users["Contact"] == email)]
+        st.session_state.user = name
+        st.rerun()
 
-            if existing_user.empty:
-
-                new_user = pd.DataFrame({
-                    "Name":[name],
-                    "Contact":[email],
-                    "MonthlyIncome":[0],
-                    "MonthlyBudget":[0]
-                })
-
-                users = pd.concat([users,new_user],ignore_index=True)
-                users.to_csv("users.csv",index=False)
-
-            st.session_state.user = name
-            st.rerun()
 
 # ---------------- DASHBOARD ----------------
 def dashboard():
@@ -168,67 +163,54 @@ def dashboard():
 
     user_data = users[users["Name"] == st.session_state.user].iloc[0]
 
-    user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
-    user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
+    df = expenses[expenses["User"] == st.session_state.user].copy()
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
-    col1,col2 = st.columns([9,1])
+    st.markdown(f"<h1 style='color:#00f5d4;'>💰 Welcome {st.session_state.user}</h1>", unsafe_allow_html=True)
 
-    with col1:
-        st.title(f"💼 FinGPT Dashboard | Welcome {st.session_state.user}")
+    # -------- Sidebar --------
+    st.sidebar.header("⚙ Financial Settings")
 
-    with col2:
-        if st.button("🚪 Logout"):
-            st.session_state.user = None
-            st.rerun()
-
-    # ---------------- SIDEBAR ----------------
-    st.sidebar.title("⚙️ Financial Settings")
-
-    income = st.sidebar.number_input("💰 Monthly Income", value=int(user_data["MonthlyIncome"]))
-    budget = st.sidebar.number_input("📊 Monthly Budget", value=int(user_data["MonthlyBudget"]))
+    income = st.sidebar.number_input("💵 Monthly Income", value=int(user_data["MonthlyIncome"]), min_value=0)
+    budget = st.sidebar.number_input("🎯 Monthly Budget", value=int(user_data["MonthlyBudget"]), min_value=0)
 
     users.loc[users["Name"] == st.session_state.user,["MonthlyIncome","MonthlyBudget"]] = [income,budget]
     users.to_csv("users.csv",index=False)
 
-    st.sidebar.subheader("➕ Add Expense")
+    # -------- Add Expense --------
+    st.sidebar.header("➕ Add Expense")
 
-    exp_date = st.sidebar.date_input("Date", datetime.today())
-    exp_cat = st.sidebar.selectbox("Category",["Food","Rent","Shopping","Travel","Entertainment","Transport"])
-    exp_amt = st.sidebar.number_input("Amount",min_value=1)
-    exp_desc = st.sidebar.text_input("Description")
+    with st.sidebar.form("add_expense"):
+        date = st.date_input("Date", datetime.today())
+        category = st.selectbox("Category",["Food","Rent","Shopping","Travel","Entertainment","Transport"])
+        amount = st.number_input("Amount", min_value=1)
+        desc = st.text_input("Description")
 
-    if st.sidebar.button("Add Expense"):
+        submit = st.form_submit_button("Add Expense")
 
-        new_row = pd.DataFrame({
-            "Date":[exp_date.strftime("%Y-%m-%d")],
-            "Category":[exp_cat],
-            "Amount":[exp_amt],
-            "Description":[exp_desc],
-            "User":[st.session_state.user]
-        })
+        if submit:
 
-        expenses = pd.concat([expenses,new_row],ignore_index=True)
-        expenses.to_csv("expenses.csv",index=False)
-        st.rerun()
+            new_row = pd.DataFrame({
+                "Date":[date.strftime("%Y-%m-%d")],
+                "Category":[category],
+                "Amount":[amount],
+                "Description":[desc],
+                "User":[st.session_state.user]
+            })
 
-    # ---------------- VOICE ENTRY ----------------
-st.subheader("🎤 Smart Voice Entry")
+            expenses = pd.concat([expenses,new_row],ignore_index=True)
+            expenses.to_csv("expenses.csv",index=False)
 
-audio = mic_recorder(
-    start_prompt="🎙 Start Recording",
-    stop_prompt="⏹ Stop Recording",
-    just_once=True,
-    use_container_width=True
-)
+            st.rerun()
 
-if audio:
+    # -------- VOICE ENTRY --------
+    st.subheader("🎤 Smart Voice Entry")
 
-    try:
+    audio = mic_recorder(start_prompt="🎙 Start Recording",stop_prompt="⏹ Stop Recording",just_once=True)
 
-        st.success("✅ Recording Finished")
+    if audio:
 
-        # Save recorded audio
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio["bytes"])
             audio_path = tmp.name
 
@@ -241,144 +223,93 @@ if audio:
 
         st.success(f"You said: {text}")
 
-        detected_date = detect_spoken_date(text)
-        text_lower = text.lower()
+    if df.empty:
+        st.warning("No expense data available.")
+        return
 
-        amount_match = re.search(r"\d+", text_lower)
-        amount = int(amount_match.group()) if amount_match else 0
+    total_spent = df["Amount"].sum()
+    savings = income - total_spent
 
-        if "food" in text_lower:
-            category = "Food"
-        elif "rent" in text_lower:
-            category = "Rent"
-        elif "shopping" in text_lower:
-            category = "Shopping"
-        elif "travel" in text_lower:
-            category = "Travel"
-        elif "movie" in text_lower:
-            category = "Entertainment"
-        elif "bus" in text_lower:
-            category = "Transport"
-        else:
-            category = "Food"
+    health_score = calculate_health_score(income,total_spent)
 
-        if amount == 0:
-            st.error("Could not detect amount.")
-            st.stop()
+    if health_score >= 750:
+        rating="Excellent"
+    elif health_score >=650:
+        rating="Good"
+    elif health_score >=550:
+        rating="Average"
+    else:
+        rating="Poor"
 
-        new_row = pd.DataFrame({
-            "Date":[detected_date],
-            "Category":[category],
-            "Amount":[amount],
-            "Description":[text],
-            "User":[st.session_state.user]
-        })
+    # -------- Metrics --------
+    col1,col2,col3,col4 = st.columns(4)
 
-        expenses = pd.concat([expenses,new_row],ignore_index=True)
-        expenses.to_csv("expenses.csv",index=False)
+    col1.metric("💰 Income",f"₹ {income}")
+    col2.metric("💸 Total Spent",f"₹ {total_spent}")
+    col3.metric("💵 Savings",f"₹ {savings}")
+    col4.metric("🏦 Health Score",f"{health_score} ({rating})")
 
-        st.success("Expense Added Successfully!")
-        st.rerun()
+    if budget>0:
+        st.progress(min(total_spent/budget,1.0))
 
-    except Exception as e:
-        st.error("Voice feature failed")
-        st.write(e)
+    # -------- Expense Table --------
+    st.subheader("📋 Expense Table")
 
-    # ---------------- AI ASSISTANT ----------------
-    st.subheader("🤖 AI Financial Assistant")
+    df_display = df.reset_index(drop=True)
+    df_display.index = df_display.index + 1
+    df_display.index.name="S.No"
 
-    question = st.text_input("Ask about your finances")
+    st.dataframe(df_display[["Date","Category","Amount","Description"]])
 
-    if question:
-
-        context = f"""
-        Income: {income}
-        Budget: {budget}
-        Total Spent: {user_expenses['Amount'].sum()}
-        """
-
-        reply = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=context + question
-        )
-
-        st.write(reply.text)
-
-    # ---------------- EXPENSE TABLE ----------------
-    st.subheader("📊 Expense Manager")
-
-    df = expenses[expenses["User"] == st.session_state.user].copy()
-
-    for i,row in df.reset_index().iterrows():
-
-        cols = st.columns([2,2,1,3,1])
-
-        cols[0].write(row["Date"])
-        cols[1].write(row["Category"])
-        cols[2].write(row["Amount"])
-        cols[3].write(row["Description"])
-
-        if cols[4].button("🗑️",key=i):
-
-            expenses = expenses.drop(row["index"])
-            expenses.to_csv("expenses.csv",index=False)
-            st.rerun()
-
-    # ---------------- METRICS ----------------
-    total = user_expenses["Amount"].sum()
-    savings = income - total
-
-    m1,m2,m3 = st.columns(3)
-
-    m1.metric("Income",f"₹{income}")
-    m2.metric("Spent",f"₹{total}")
-    m3.metric("Savings",f"₹{savings}")
-
-    # ---------------- CHARTS ----------------
+    # -------- Charts --------
     st.subheader("📊 Category Distribution")
 
-    cat = user_expenses.groupby("Category")["Amount"].sum()
+    cat = df.groupby("Category")["Amount"].sum()
 
-    if not cat.empty:
-        fig,ax = plt.subplots()
-        ax.pie(cat,labels=cat.index,autopct="%1.1f%%")
-        st.pyplot(fig)
+    fig1,ax1 = plt.subplots()
+    ax1.pie(cat,labels=cat.index,autopct="%1.1f%%")
+    st.pyplot(fig1)
 
-    # ---------------- DAILY SPENDING ----------------
     st.subheader("📈 Daily Spending")
 
-    daily = user_expenses.groupby(user_expenses["Date"].dt.date)["Amount"].sum()
+    daily = df.groupby(df["Date"].dt.date)["Amount"].sum()
 
-    if not daily.empty:
-        fig2, ax2 = plt.subplots()
-        daily.plot(kind="bar", ax=ax2)
-        st.pyplot(fig2)
+    fig2,ax2 = plt.subplots()
+    daily.plot(kind="bar",ax=ax2)
+    st.pyplot(fig2)
 
-    # ---------------- MONTH-END PREDICTION ----------------
-    st.subheader("🔮 Month-End Prediction")
+    st.subheader("📉 Monthly Trend")
 
-    cum = user_expenses.groupby(user_expenses["Date"].dt.day)["Amount"].sum().cumsum()
+    monthly = df.groupby(df["Date"].dt.day)["Amount"].sum()
 
-    if len(cum) > 1:
+    fig3,ax3 = plt.subplots()
+    monthly.plot(marker="o",ax=ax3)
+    st.pyplot(fig3)
 
-        X = np.array(cum.index).reshape(-1,1)
-        y = cum.values
+    # -------- Suggestions --------
+    st.subheader("🤖 Smart Suggestions")
 
-        model = LinearRegression()
-        model.fit(X,y)
+    highest = cat.idxmax()
 
-        future_days = np.array(range(1,31)).reshape(-1,1)
-        predictions = model.predict(future_days)
+    suggestions=[
+        f"Highest spending category: {highest}",
+        "Maintain at least 20% savings.",
+        "Reduce unnecessary expenses.",
+        "Review budget weekly.",
+        "Avoid impulse purchases.",
+        "Plan major expenses in advance."
+    ]
 
-        fig3, ax3 = plt.subplots()
-        ax3.plot(cum.index, y)
-        ax3.plot(range(1,31), predictions, linestyle="--")
+    for s in suggestions:
+        st.write("•",s)
 
-        st.pyplot(fig3)
+    if st.button("Logout"):
+        st.session_state.user=None
+        st.rerun()
+
 
 # ---------------- MAIN ----------------
 if st.session_state.user is None:
     login()
 else:
     dashboard()
-
