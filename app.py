@@ -10,9 +10,9 @@ import tempfile
 import json
 import re
 from dateutil import parser as date_parser
-import sounddevice as sd
-from scipy.io.wavfile import write
-import speech_recognition as sr
+#import sounddevice as sd
+#from scipy.io.wavfile import write
+#import speech_recognition as sr
 from google import genai
 from streamlit_oauth import OAuth2Component
 
@@ -469,4 +469,5 @@ def dashboard():
 if st.session_state.user is None:
     login()
 else:
+
     dashboard()
