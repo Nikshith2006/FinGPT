@@ -2,7 +2,9 @@ streamlit
 pandas
 matplotlib
 numpy
-reportlab
 scikit-learn
-google-generativeai
 python-dotenv
+google-genai
+streamlit-oauth
+streamlit-mic-recorder
+SpeechRecognition
