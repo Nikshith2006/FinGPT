@@ -212,76 +212,77 @@ def dashboard():
         st.rerun()
 
     # ---------------- VOICE ENTRY ----------------
-    st.subheader("🎤 Smart Voice Entry")
+st.subheader("🎤 Smart Voice Entry")
 
-    audio = mic_recorder(
-        start_prompt="🎙 Start Recording",
-        stop_prompt="⏹ Stop Recording",
-        just_once=True,
-        use_container_width=True
-    )
+audio = mic_recorder(
+    start_prompt="🎙 Start Recording",
+    stop_prompt="⏹ Stop Recording",
+    just_once=True,
+    use_container_width=True
+)
 
-    if audio:
+if audio:
 
-        try:
+    try:
 
-            st.success("✅ Recording Finished")
+        st.success("✅ Recording Finished")
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                tmp.write(audio["bytes"])
-                audio_path = tmp.name
+        # Save recorded audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+            tmp.write(audio["bytes"])
+            audio_path = tmp.name
 
-            recognizer = sr.Recognizer()
+        recognizer = sr.Recognizer()
 
-            with sr.AudioFile(audio_path) as source:
-                audio_data = recognizer.record(source)
+        with sr.AudioFile(audio_path) as source:
+            audio_data = recognizer.record(source)
 
-            text = recognizer.recognize_google(audio_data)
+        text = recognizer.recognize_google(audio_data)
 
-            st.success(f"You said: {text}")
+        st.success(f"You said: {text}")
 
-            detected_date = detect_spoken_date(text)
-            text_lower = text.lower()
+        detected_date = detect_spoken_date(text)
+        text_lower = text.lower()
 
-            amount_match = re.search(r"\d+", text_lower)
-            amount = int(amount_match.group()) if amount_match else 0
+        amount_match = re.search(r"\d+", text_lower)
+        amount = int(amount_match.group()) if amount_match else 0
 
-            if "food" in text_lower:
-                category = "Food"
-            elif "rent" in text_lower:
-                category = "Rent"
-            elif "shopping" in text_lower:
-                category = "Shopping"
-            elif "travel" in text_lower:
-                category = "Travel"
-            elif "movie" in text_lower:
-                category = "Entertainment"
-            elif "bus" in text_lower:
-                category = "Transport"
-            else:
-                category = "Food"
+        if "food" in text_lower:
+            category = "Food"
+        elif "rent" in text_lower:
+            category = "Rent"
+        elif "shopping" in text_lower:
+            category = "Shopping"
+        elif "travel" in text_lower:
+            category = "Travel"
+        elif "movie" in text_lower:
+            category = "Entertainment"
+        elif "bus" in text_lower:
+            category = "Transport"
+        else:
+            category = "Food"
 
-            if amount == 0:
-                st.error("Could not detect amount.")
-                st.stop()
+        if amount == 0:
+            st.error("Could not detect amount.")
+            st.stop()
 
-            new_row = pd.DataFrame({
-                "Date":[detected_date],
-                "Category":[category],
-                "Amount":[amount],
-                "Description":[text],
-                "User":[st.session_state.user]
-            })
+        new_row = pd.DataFrame({
+            "Date":[detected_date],
+            "Category":[category],
+            "Amount":[amount],
+            "Description":[text],
+            "User":[st.session_state.user]
+        })
 
-            expenses = pd.concat([expenses,new_row],ignore_index=True)
-            expenses.to_csv("expenses.csv",index=False)
+        expenses = pd.concat([expenses,new_row],ignore_index=True)
+        expenses.to_csv("expenses.csv",index=False)
 
-            st.success("Expense Added Successfully!")
-            st.rerun()
+        st.success("Expense Added Successfully!")
+        st.rerun()
 
-        except Exception as e:
-            st.error("Voice feature failed")
-            st.write(e)
+    except Exception as e:
+        st.error("Voice feature failed")
+        st.write(e)
 
     # ---------------- AI ASSISTANT ----------------
     st.subheader("🤖 AI Financial Assistant")
@@ -380,3 +381,4 @@ if st.session_state.user is None:
     login()
 else:
     dashboard()
+
