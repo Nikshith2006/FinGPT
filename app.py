@@ -291,7 +291,7 @@ if audio:
             text = recognizer.recognize_google(audio_data)
         except:
             st.error("Could not understand audio.")
-            return
+            st.stop()
 
         st.success(f"You said: {text}")
 
@@ -318,7 +318,7 @@ if audio:
 
         if amount == 0:
             st.error("Could not detect amount.")
-            return
+            st.stop()
 
         new_row = pd.DataFrame({
             "Date":[detected_date],
@@ -460,6 +460,7 @@ if st.session_state.user is None:
 else:
 
     dashboard()
+
 
 
 
