@@ -254,6 +254,7 @@ def dashboard():
         st.rerun()
 
     # ---------------- VOICE ENTRY ----------------
+    if st.session_state.user:
     st.subheader("🎤 Smart Voice Entry")
 
 record_placeholder = st.empty()
@@ -460,6 +461,7 @@ if st.session_state.user is None:
 else:
 
     dashboard()
+
 
 
 
