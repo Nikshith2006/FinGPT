@@ -1,131 +1,89 @@
 import streamlit as st
-import pandas as pd
-import re
-import tempfile
 import speech_recognition as sr
+import pandas as pd
+import tempfile
+import re
 from datetime import datetime
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from features.utils import detect_spoken_date
-
-# Safe import for sounddevice (Streamlit Cloud fix)
-try:
-    import sounddevice as sd
-    from scipy.io.wavfile import write
-    AUDIO_AVAILABLE = True
-except Exception:
-    AUDIO_AVAILABLE = False
 
 
 def voice_entry(expenses):
 
-    st.subheader("🎤 Smart Voice Entry")
+    st.info("🎤 Voice Entry")
 
-    # If audio hardware is not available (Streamlit Cloud)
-    if not AUDIO_AVAILABLE:
-        st.info("🎤 Voice recording is not supported on this server.")
-        st.info("Run the app locally to use voice input.")
-        return
+    ctx = webrtc_streamer(
+        key="speech",
+        mode=WebRtcMode.SENDONLY,
+        audio_receiver_size=1024,
+        media_stream_constraints={"audio": True, "video": False},
+    )
 
-    record_placeholder = st.empty()
-
-    if st.button("🎙️ Start Recording"):
+    if ctx.audio_receiver:
 
         try:
 
-            fs = 16000
-            duration = 5
+            audio_frames = ctx.audio_receiver.get_frames(timeout=1)
 
-            record_placeholder.markdown(
-            """
-            <div style="text-align:center;font-size:40px;color:red;">
-            🎤 Recording...
-            </div>
-            """,
-            unsafe_allow_html=True
-            )
+            if audio_frames:
 
-            recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
-            sd.wait()
+                recognizer = sr.Recognizer()
 
-            record_placeholder.markdown(
-            """
-            <div style="text-align:center;font-size:30px;color:green;">
-            ✅ Recording Finished
-            </div>
-            """,
-            unsafe_allow_html=True
-            )
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
 
-            recording_int16 = (recording * 32767).astype("int16")
+                    for frame in audio_frames:
+                        tmp.write(frame.to_ndarray().tobytes())
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                write(tmp.name, fs, recording_int16)
-                audio_path = tmp.name
+                    audio_path = tmp.name
 
-            recognizer = sr.Recognizer()
+                with sr.AudioFile(audio_path) as source:
+                    audio = recognizer.record(source)
 
-            with sr.AudioFile(audio_path) as source:
-                audio = recognizer.record(source)
-
-            try:
                 text = recognizer.recognize_google(audio)
-            except Exception:
-                st.error("Could not understand audio.")
-                return
 
-            st.success(f"You said: {text}")
+                st.success(f"You said: {text}")
 
-            # Detect date
-            detected_date = detect_spoken_date(text)
+                text_lower = text.lower()
 
-            text_lower = text.lower()
+                detected_date = detect_spoken_date(text)
 
-            # Detect amount
-            amount_match = re.search(r"\d+", text_lower)
-            amount = int(amount_match.group()) if amount_match else 0
+                amount_match = re.search(r"\d+", text_lower)
+                amount = int(amount_match.group()) if amount_match else 0
 
-            # Detect category
-            if any(word in text_lower for word in ["food","dinner","lunch","breakfast"]):
-                category = "Food"
+                if "food" in text_lower or "lunch" in text_lower:
+                    category = "Food"
+                elif "rent" in text_lower:
+                    category = "Rent"
+                elif "shopping" in text_lower:
+                    category = "Shopping"
+                elif "travel" in text_lower:
+                    category = "Travel"
+                elif "movie" in text_lower:
+                    category = "Entertainment"
+                elif "bus" in text_lower or "uber" in text_lower:
+                    category = "Transport"
+                else:
+                    category = "Food"
 
-            elif "rent" in text_lower:
-                category = "Rent"
+                if amount == 0:
+                    st.error("Amount not detected")
+                    return
 
-            elif any(word in text_lower for word in ["shopping","buy","clothes"]):
-                category = "Shopping"
+                new_row = pd.DataFrame({
+                    "Date":[detected_date],
+                    "Category":[category],
+                    "Amount":[amount],
+                    "Description":[text],
+                    "User":[st.session_state.user]
+                })
 
-            elif any(word in text_lower for word in ["travel","trip"]):
-                category = "Travel"
+                expenses = pd.concat([expenses,new_row],ignore_index=True)
 
-            elif any(word in text_lower for word in ["movie","entertainment"]):
-                category = "Entertainment"
+                expenses.to_csv("expenses.csv",index=False)
 
-            elif any(word in text_lower for word in ["bus","metro","ticket","uber","taxi"]):
-                category = "Transport"
+                st.success("Expense added successfully")
 
-            else:
-                category = "Food"
-
-            if amount == 0:
-                st.error("Could not detect amount.")
-                return
-
-            # Save expense
-            new_row = pd.DataFrame({
-                "Date":[detected_date],
-                "Category":[category],
-                "Amount":[amount],
-                "Description":[text],
-                "User":[st.session_state.user]
-            })
-
-            expenses = pd.concat([expenses,new_row],ignore_index=True)
-
-            expenses.to_csv("expenses.csv",index=False)
-
-            st.success("Expense Added Successfully!")
-
-            st.rerun()
+                st.rerun()
 
         except Exception as e:
-            st.error("Voice feature failed")
-            st.write(e)
+            st.warning("Speak clearly after clicking start")
