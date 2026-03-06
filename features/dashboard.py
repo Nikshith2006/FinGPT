@@ -18,6 +18,7 @@ def dashboard():
 
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
 
+    # Fix date parsing
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     col1, col2 = st.columns([9,1])
@@ -62,12 +63,13 @@ def dashboard():
     )
 
     exp_amt = st.sidebar.number_input("💵 Amount", min_value=1)
+
     exp_desc = st.sidebar.text_input("📝 Description")
 
     if st.sidebar.button("➕ Add Expense"):
 
         new_row = pd.DataFrame({
-            "Date":[exp_date],
+            "Date":[pd.to_datetime(exp_date)],
             "Category":[exp_cat],
             "Amount":[exp_amt],
             "Description":[exp_desc],
@@ -87,6 +89,7 @@ def dashboard():
     # ================= METRICS =================
 
     total = user_expenses["Amount"].sum()
+
     savings = income - total
 
     score = 0
@@ -120,77 +123,6 @@ def dashboard():
     m4.metric("🏦 Savings", f"₹ {savings}")
     m5.metric("💚 Health Score", f"{score}/100", status)
 
-    # ================= SMART SUGGESTIONS =================
-
-    st.subheader("💡 Smart Suggestions")
-
-    suggestions = []
-
-    if income > 0:
-
-        spending_ratio = total / income
-
-        if total > budget and budget > 0:
-            suggestions.append("⚠️ You exceeded your monthly budget.")
-
-        if spending_ratio > 0.9:
-            suggestions.append("🚨 You are spending almost all of your income.")
-
-        if savings < 0:
-            suggestions.append("❗ Your expenses are higher than your income.")
-
-        if savings > income * 0.3:
-            suggestions.append("✅ Great job! Your savings rate is excellent.")
-
-        category_spending = user_expenses.groupby("Category")["Amount"].sum()
-
-        if "Food" in category_spending and category_spending["Food"] > income * 0.30:
-            suggestions.append("🍔 High spending on Food detected.")
-
-        if "Shopping" in category_spending and category_spending["Shopping"] > income * 0.25:
-            suggestions.append("🛍 Shopping expenses are high.")
-
-        if "Entertainment" in category_spending and category_spending["Entertainment"] > income * 0.20:
-            suggestions.append("🎬 Entertainment spending is high.")
-
-        if "Transport" in category_spending and category_spending["Transport"] > income * 0.15:
-            suggestions.append("🚕 Transport costs are high.")
-
-        if budget > 0:
-
-            budget_ratio = total / budget
-
-            if budget_ratio > 0.8 and budget_ratio < 1:
-                suggestions.append("⚠️ You used more than 80% of your budget.")
-
-            if budget_ratio < 0.5:
-                suggestions.append("👍 Good budget control so far!")
-
-    if suggestions:
-        for s in suggestions:
-            st.write(s)
-    else:
-        st.success("Your spending looks healthy 👍")
-
-    # ================= AI ASSISTANT =================
-
-    st.subheader("🤖 AI Financial Assistant")
-
-    question = st.text_input("Ask about your finances")
-
-    if question:
-
-        answer = ask_ai(
-            income,
-            budget,
-            user_expenses["Amount"].sum(),
-            question
-        )
-
-        st.write(answer)
-
-    st.divider()
-
     # ================= EXPENSE TABLE =================
 
     st.subheader("📊 Expense Manager")
@@ -203,13 +135,14 @@ def dashboard():
 
     df = df.reset_index(drop=True)
 
-    df.insert(0,"S.No", range(1,len(df)+1))
+    df.insert(0,"S.No",range(1,len(df)+1))
 
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
     st.dataframe(
         df[["S.No","Date","Category","Amount","Description"]],
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True
     )
 
     # ================= CATEGORY CHART =================
@@ -241,6 +174,7 @@ def dashboard():
         ax2.plot(daily.index, daily.values, marker="o")
 
         ax2.set_xlabel("Date")
+
         ax2.set_ylabel("Amount")
 
         plt.xticks(rotation=45)
@@ -266,6 +200,7 @@ def dashboard():
         ax4.plot(monthly.index, monthly.values, marker="o")
 
         ax4.set_xlabel("Month")
+
         ax4.set_ylabel("Total Spending")
 
         ax4.grid(True)
@@ -283,12 +218,15 @@ def dashboard():
     if len(cum) > 1:
 
         X = np.array(cum.index).reshape(-1,1)
+
         y = cum.values
 
         model = LinearRegression()
+
         model.fit(X,y)
 
         future = np.array(range(1,31)).reshape(-1,1)
+
         pred = model.predict(future)
 
         fig3, ax3 = plt.subplots()
@@ -298,8 +236,61 @@ def dashboard():
         ax3.plot(range(1,31), pred, "--", label="Prediction")
 
         ax3.set_xlabel("Day of Month")
+
         ax3.set_ylabel("Cumulative Spending")
 
         ax3.legend()
 
         st.pyplot(fig3)
+
+    # ================= SMART SUGGESTIONS =================
+
+    st.subheader("😊 Smart Suggestions")
+
+    suggestions = []
+
+    if not user_expenses.empty:
+
+        highest = user_expenses.groupby("Category")["Amount"].sum().idxmax()
+
+        suggestions.append(f"Highest spending category: {highest}")
+
+    suggestions.append("Maintain at least 20% savings.")
+
+    suggestions.append("Reduce unnecessary expenses.")
+
+    suggestions.append("Review budget weekly.")
+
+    suggestions.append("Avoid impulse purchases.")
+
+    suggestions.append("Plan major expenses in advance.")
+
+    suggestions.append("Track expenses daily for better control.")
+
+    suggestions.append("Set monthly spending limits.")
+
+    suggestions.append("Use savings goals to stay motivated.")
+
+    suggestions.append("Monitor high spending categories.")
+
+    suggestions.append("Balance needs vs wants before spending.")
+
+    for s in suggestions:
+        st.write(f"• {s}")
+
+    # ================= AI ASSISTANT =================
+
+    st.subheader("🤖 AI Financial Assistant")
+
+    question = st.text_input("Ask about your finances")
+
+    if question:
+
+        answer = ask_ai(
+            income,
+            budget,
+            user_expenses["Amount"].sum(),
+            question
+        )
+
+        st.write(answer)
