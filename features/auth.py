@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
-from streamlit_oauth import OAuth2Component
-from dotenv import load_dotenv
 import requests
+from dotenv import load_dotenv
+from streamlit_oauth import OAuth2Component
 
 load_dotenv()
 
@@ -13,6 +13,7 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
+# Initialize OAuth
 oauth2 = OAuth2Component(
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
@@ -20,6 +21,7 @@ oauth2 = OAuth2Component(
     TOKEN_URL,
     TOKEN_URL
 )
+
 
 def login():
 
@@ -35,6 +37,7 @@ def login():
 
     users = pd.read_csv("users.csv")
 
+    # Center layout
     col1, col2, col3 = st.columns([1,2,1])
 
     with col2:
@@ -50,6 +53,7 @@ def login():
             ]
 
             if not existing_user.empty:
+
                 st.session_state.user = name
                 st.rerun()
 
@@ -63,6 +67,7 @@ def login():
                 })
 
                 users = pd.concat([users,new_user],ignore_index=True)
+
                 users.to_csv("users.csv",index=False)
 
                 st.session_state.user = name
@@ -77,23 +82,32 @@ def login():
         unsafe_allow_html=True
         )
 
+        # GOOGLE LOGIN BUTTON (CENTERED)
         result = oauth2.authorize_button(
             name="Login with Google",
             icon="https://www.google.com/favicon.ico",
-            redirect_uri="http://localhost:8501",
+
+            # IMPORTANT: Use deployed Streamlit URL
+            redirect_uri="https://fingpt20.streamlit.app",
+
             scope="openid email profile",
             key="google",
+            use_container_width=True
         )
 
         if result and "token" in result:
 
             userinfo = requests.get(
                 "https://www.googleapis.com/oauth2/v1/userinfo",
-                headers={"Authorization": f"Bearer {result['token']['access_token']}"},
+                headers={
+                    "Authorization": f"Bearer {result['token']['access_token']}"
+                },
             ).json()
 
             name = userinfo["name"]
             email = userinfo["email"]
+
+            users = pd.read_csv("users.csv")
 
             existing_user = users[
                 (users["Name"] == name) &
@@ -110,6 +124,7 @@ def login():
                 })
 
                 users = pd.concat([users,new_user],ignore_index=True)
+
                 users.to_csv("users.csv",index=False)
 
             st.session_state.user = name
