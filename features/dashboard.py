@@ -46,14 +46,15 @@ def dashboard():
     users.loc[
         users["Name"] == st.session_state.user,
         ["MonthlyIncome","MonthlyBudget"]
-    ] = [income,budget]
+    ] = [income, budget]
 
-    users.to_csv("users.csv",index=False)
+    users.to_csv("users.csv", index=False)
 
     st.sidebar.divider()
     st.sidebar.subheader("➕ Add New Expense")
 
     exp_date = st.sidebar.date_input("📅 Date", datetime.today())
+
     exp_cat = st.sidebar.selectbox(
         "🏷 Category",
         ["Food","Rent","Shopping","Travel","Entertainment","Transport"]
@@ -72,8 +73,8 @@ def dashboard():
             "User":[st.session_state.user]
         })
 
-        expenses = pd.concat([expenses,new_row],ignore_index=True)
-        expenses.to_csv("expenses.csv",index=False)
+        expenses = pd.concat([expenses,new_row], ignore_index=True)
+        expenses.to_csv("expenses.csv", index=False)
 
         st.rerun()
 
@@ -87,26 +88,30 @@ def dashboard():
     savings = income - total
 
     # Health score calculation
+    score = 0
+    status = "Unknown"
+
     if income > 0:
+
         ratio = total / income
 
         if ratio <= 0.5:
             score = 90
             status = "Excellent"
+
         elif ratio <= 0.7:
             score = 70
             status = "Good"
+
         elif ratio <= 0.9:
             score = 50
             status = "Warning"
+
         else:
             score = 30
             status = "Danger"
-    else:
-        score = 0
-        status = "No Data"
 
-    # Side-by-side metrics
+    # All metrics side by side
     m1, m2, m3, m4, m5 = st.columns(5)
 
     m1.metric("💰 Income", f"₹ {income}")
@@ -143,25 +148,20 @@ def dashboard():
             suggestions.append("🍔 High spending on Food detected.")
 
         if "Shopping" in category_spending and category_spending["Shopping"] > income * 0.25:
-            suggestions.append("🛍 Shopping expenses are high this month.")
+            suggestions.append("🛍 Shopping expenses are high.")
 
         if "Entertainment" in category_spending and category_spending["Entertainment"] > income * 0.20:
             suggestions.append("🎬 Entertainment spending is high.")
 
         if "Transport" in category_spending and category_spending["Transport"] > income * 0.15:
-            suggestions.append("🚕 Transport costs are relatively high.")
-
-        if len(user_expenses) > 5:
-            avg_spend = user_expenses["Amount"].mean()
-
-            if avg_spend > income * 0.1:
-                suggestions.append("📊 Your average transaction amount is high.")
+            suggestions.append("🚕 Transport costs are high.")
 
         if budget > 0:
+
             budget_ratio = total / budget
 
-            if 0.8 < budget_ratio < 1:
-                suggestions.append("⚠️ You have used more than 80% of your budget.")
+            if budget_ratio > 0.8 and budget_ratio < 1:
+                suggestions.append("⚠️ You used more than 80% of your budget.")
 
             if budget_ratio < 0.5:
                 suggestions.append("👍 Good budget control so far!")
@@ -179,12 +179,14 @@ def dashboard():
     question = st.text_input("Ask about your finances")
 
     if question:
+
         answer = ask_ai(
             income,
             budget,
             user_expenses["Amount"].sum(),
             question
         )
+
         st.write(answer)
 
     st.divider()
@@ -226,7 +228,7 @@ def dashboard():
 
     else:
 
-        for i,row in df.reset_index().iterrows():
+        for i, row in df.reset_index().iterrows():
 
             cols = st.columns([2,2,1,3,1])
 
@@ -249,21 +251,25 @@ def dashboard():
     cat = user_expenses.groupby("Category")["Amount"].sum()
 
     if not cat.empty:
-        fig1,ax1 = plt.subplots()
+
+        fig1, ax1 = plt.subplots()
+
         ax1.pie(cat, labels=cat.index, autopct="%1.1f%%")
+
         st.pyplot(fig1)
 
     # ================= DAILY SPENDING =================
 
     st.subheader("📈 Daily Spending")
 
-    daily = user_expenses.groupby(
-        user_expenses["Date"].dt.date
-    )["Amount"].sum()
+    daily = user_expenses.groupby(user_expenses["Date"].dt.date)["Amount"].sum()
 
     if not daily.empty:
-        fig2,ax2 = plt.subplots()
-        daily.plot(kind="bar",ax=ax2)
+
+        fig2, ax2 = plt.subplots()
+
+        daily.plot(kind="bar", ax=ax2)
+
         st.pyplot(fig2)
 
     # ================= MONTHLY TREND =================
@@ -275,9 +281,16 @@ def dashboard():
     )["Amount"].sum()
 
     if not monthly.empty:
-        fig4,ax4 = plt.subplots()
-        monthly.plot(marker="o",ax=ax4)
+
+        monthly.index = monthly.index.astype(str)
+
+        fig4, ax4 = plt.subplots()
+
+        ax4.plot(monthly.index, monthly.values, marker="o")
+
+        ax4.set_xlabel("Month")
         ax4.set_ylabel("Spending")
+
         st.pyplot(fig4)
 
     # ================= PREDICTION =================
@@ -299,10 +312,11 @@ def dashboard():
         future = np.array(range(1,31)).reshape(-1,1)
         pred = model.predict(future)
 
-        fig3,ax3 = plt.subplots()
+        fig3, ax3 = plt.subplots()
 
-        ax3.plot(cum.index,y,label="Actual")
-        ax3.plot(range(1,31),pred,"--",label="Prediction")
+        ax3.plot(cum.index, y, label="Actual")
+
+        ax3.plot(range(1,31), pred, "--", label="Prediction")
 
         ax3.legend()
 
