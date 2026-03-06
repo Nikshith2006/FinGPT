@@ -30,8 +30,9 @@ def dashboard():
 
     ai_assistant(income,budget,total)
 
-    voice_entry()
+    voice_entry(expenses, st.session_state.user, detect_spoken_date)
 
 
     show_charts(df)
+
 
