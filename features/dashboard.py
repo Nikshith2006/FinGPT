@@ -12,6 +12,8 @@ def dashboard():
     users = pd.read_csv("users.csv")
     expenses = pd.read_csv("expenses.csv")
 
+    expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
+
     user_data = users[users["Name"] == st.session_state.user].iloc[0]
 
     col1, col2 = st.columns([9,1])
@@ -61,8 +63,11 @@ def dashboard():
 
     if st.sidebar.button("➕ Add Expense"):
 
+        if exp_date is None:
+            exp_date = datetime.today()
+
         new_row = pd.DataFrame({
-            "Date":[exp_date],
+            "Date":[pd.to_datetime(exp_date)],
             "Category":[exp_cat],
             "Amount":[exp_amt],
             "Description":[exp_desc],
@@ -79,15 +84,15 @@ def dashboard():
 
     voice_entry(expenses)
 
-    # refresh
     expenses = pd.read_csv("expenses.csv")
+    expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
+
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
-    user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     # ================= UI SECTION =================
 
-    show_metrics_ai_table(income, budget, user_expenses, expenses)
+    filtered_expenses = show_metrics_ai_table(income, budget, user_expenses, expenses)
 
-    # ================= CHARTS SECTION =================
+    # ================= CHARTS =================
 
-    show_charts_and_suggestions(income, user_expenses)
+    show_charts_and_suggestions(income, filtered_expenses)
