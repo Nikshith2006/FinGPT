@@ -11,8 +11,6 @@ from streamlit_mic_recorder import mic_recorder
 
 def voice_entry(expenses, user, detect_spoken_date):
 
-    st.subheader("")
-
     # Click once to start recording
     if st.button("🎤 Voice Entry"):
 
@@ -105,4 +103,5 @@ def voice_entry(expenses, user, detect_spoken_date):
         except Exception as e:
             st.error("Voice recognition failed")
             st.write(e)
+
 
