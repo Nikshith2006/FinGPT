@@ -19,7 +19,7 @@ def dashboard():
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
-    col1,col2 = st.columns([9,1])
+    col1, col2 = st.columns([9,1])
 
     with col1:
         st.title(f"💼 FinGPT Dashboard | Welcome {st.session_state.user}")
@@ -86,18 +86,8 @@ def dashboard():
     total = user_expenses["Amount"].sum()
     savings = income - total
 
-    m1,m2,m3 = st.columns(3)
-
-    m1.metric("💰 Income",f"₹ {income}")
-    m2.metric("💸 Spent",f"₹ {total}")
-    m3.metric("🏦 Savings",f"₹ {savings}")
-
-    # ================= HEALTH SCORE =================
-
-    st.subheader("💚 Financial Health Score")
-
+    # Health score calculation
     if income > 0:
-
         ratio = total / income
 
         if ratio <= 0.5:
@@ -112,77 +102,75 @@ def dashboard():
         else:
             score = 30
             status = "Danger"
-
-        st.metric("Health Score", f"{score}/100", status)
-
     else:
-        st.info("Enter your income to calculate health score")
+        score = 0
+        status = "No Data"
+
+    # Side-by-side metrics
+    m1, m2, m3, m4, m5 = st.columns(5)
+
+    m1.metric("💰 Income", f"₹ {income}")
+    m2.metric("📊 Budget", f"₹ {budget}")
+    m3.metric("💸 Spent", f"₹ {total}")
+    m4.metric("🏦 Savings", f"₹ {savings}")
+    m5.metric("💚 Health Score", f"{score}/100", status)
 
     # ================= SMART SUGGESTIONS =================
 
     st.subheader("💡 Smart Suggestions")
 
-suggestions = []
+    suggestions = []
 
-if income > 0:
+    if income > 0:
 
-    spending_ratio = total / income
+        spending_ratio = total / income
 
-    if total > budget and budget > 0:
-        suggestions.append("⚠️ You exceeded your monthly budget.")
+        if total > budget and budget > 0:
+            suggestions.append("⚠️ You exceeded your monthly budget.")
 
-    if spending_ratio > 0.9:
-        suggestions.append("🚨 You are spending almost all of your income.")
+        if spending_ratio > 0.9:
+            suggestions.append("🚨 You are spending almost all of your income.")
 
-    if savings < 0:
-        suggestions.append("❗ Your expenses are higher than your income.")
+        if savings < 0:
+            suggestions.append("❗ Your expenses are higher than your income.")
 
-    if savings > income * 0.3:
-        suggestions.append("✅ Great job! Your savings rate is excellent.")
+        if savings > income * 0.3:
+            suggestions.append("✅ Great job! Your savings rate is excellent.")
 
-    # Category analysis
-    category_spending = user_expenses.groupby("Category")["Amount"].sum()
+        category_spending = user_expenses.groupby("Category")["Amount"].sum()
 
-    if "Food" in category_spending:
-        if category_spending["Food"] > income * 0.30:
-            suggestions.append("🍔 High spending on Food detected. Try cooking more at home.")
+        if "Food" in category_spending and category_spending["Food"] > income * 0.30:
+            suggestions.append("🍔 High spending on Food detected.")
 
-    if "Shopping" in category_spending:
-        if category_spending["Shopping"] > income * 0.25:
+        if "Shopping" in category_spending and category_spending["Shopping"] > income * 0.25:
             suggestions.append("🛍 Shopping expenses are high this month.")
 
-    if "Entertainment" in category_spending:
-        if category_spending["Entertainment"] > income * 0.20:
-            suggestions.append("🎬 Entertainment spending is above recommended levels.")
+        if "Entertainment" in category_spending and category_spending["Entertainment"] > income * 0.20:
+            suggestions.append("🎬 Entertainment spending is high.")
 
-    if "Transport" in category_spending:
-        if category_spending["Transport"] > income * 0.15:
+        if "Transport" in category_spending and category_spending["Transport"] > income * 0.15:
             suggestions.append("🚕 Transport costs are relatively high.")
 
-    # Spending trend
-    if len(user_expenses) > 5:
-        avg_spend = user_expenses["Amount"].mean()
+        if len(user_expenses) > 5:
+            avg_spend = user_expenses["Amount"].mean()
 
-        if avg_spend > income * 0.1:
-            suggestions.append("📊 Your average transaction amount is high.")
+            if avg_spend > income * 0.1:
+                suggestions.append("📊 Your average transaction amount is high.")
 
-    # Budget usage
-    if budget > 0:
-        budget_ratio = total / budget
+        if budget > 0:
+            budget_ratio = total / budget
 
-        if budget_ratio > 0.8 and budget_ratio < 1:
-            suggestions.append("⚠️ You have used more than 80% of your budget.")
+            if 0.8 < budget_ratio < 1:
+                suggestions.append("⚠️ You have used more than 80% of your budget.")
 
-        if budget_ratio < 0.5:
-            suggestions.append("👍 Good budget control so far!")
+            if budget_ratio < 0.5:
+                suggestions.append("👍 Good budget control so far!")
 
-# Display suggestions
-
-if suggestions:
-    for s in suggestions:
-        st.write(s)
-else:
-    st.success("Your spending looks healthy 👍")
+    if suggestions:
+        for s in suggestions:
+            st.write(s)
+    else:
+        st.success("Your spending looks healthy 👍")
 
     # ================= AI ASSISTANT =================
 
@@ -191,14 +179,12 @@ else:
     question = st.text_input("Ask about your finances")
 
     if question:
-
         answer = ask_ai(
             income,
             budget,
             user_expenses["Amount"].sum(),
             question
         )
-
         st.write(answer)
 
     st.divider()
@@ -207,7 +193,7 @@ else:
 
     st.subheader("📊 Expense Manager")
 
-    col1,col2 = st.columns([9,1])
+    col1, col2 = st.columns([9,1])
 
     with col2:
         if st.button("✏️"):
@@ -236,7 +222,6 @@ else:
             expenses.to_csv("expenses.csv", index=False)
 
             st.session_state.edit_mode = False
-
             st.rerun()
 
     else:
@@ -264,15 +249,8 @@ else:
     cat = user_expenses.groupby("Category")["Amount"].sum()
 
     if not cat.empty:
-
         fig1,ax1 = plt.subplots()
-
-        ax1.pie(
-            cat,
-            labels=cat.index,
-            autopct="%1.1f%%"
-        )
-
+        ax1.pie(cat, labels=cat.index, autopct="%1.1f%%")
         st.pyplot(fig1)
 
     # ================= DAILY SPENDING =================
@@ -284,11 +262,8 @@ else:
     )["Amount"].sum()
 
     if not daily.empty:
-
         fig2,ax2 = plt.subplots()
-
         daily.plot(kind="bar",ax=ax2)
-
         st.pyplot(fig2)
 
     # ================= MONTHLY TREND =================
@@ -300,13 +275,9 @@ else:
     )["Amount"].sum()
 
     if not monthly.empty:
-
         fig4,ax4 = plt.subplots()
-
         monthly.plot(marker="o",ax=ax4)
-
         ax4.set_ylabel("Spending")
-
         st.pyplot(fig4)
 
     # ================= PREDICTION =================
@@ -331,7 +302,6 @@ else:
         fig3,ax3 = plt.subplots()
 
         ax3.plot(cum.index,y,label="Actual")
-
         ax3.plot(range(1,31),pred,"--",label="Prediction")
 
         ax3.legend()
