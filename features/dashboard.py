@@ -18,7 +18,6 @@ def dashboard():
 
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
 
-    # Fix date parsing
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     col1, col2 = st.columns([9,1])
@@ -53,6 +52,7 @@ def dashboard():
     users.to_csv("users.csv", index=False)
 
     st.sidebar.divider()
+
     st.sidebar.subheader("➕ Add New Expense")
 
     exp_date = st.sidebar.date_input("📅 Date", datetime.today())
@@ -69,7 +69,7 @@ def dashboard():
     if st.sidebar.button("➕ Add Expense"):
 
         new_row = pd.DataFrame({
-            "Date":[pd.to_datetime(exp_date)],
+            "Date":[exp_date.strftime("%Y-%m-%d")],
             "Category":[exp_cat],
             "Amount":[exp_amt],
             "Description":[exp_desc],
@@ -89,7 +89,6 @@ def dashboard():
     # ================= METRICS =================
 
     total = user_expenses["Amount"].sum()
-
     savings = income - total
 
     score = 0
@@ -115,168 +114,15 @@ def dashboard():
             score = 30
             status = "Danger"
 
-    m1, m2, m3, m4, m5 = st.columns(5)
-
-    m1.metric("💰 Income", f"₹ {income}")
-    m2.metric("📊 Budget", f"₹ {budget}")
-    m3.metric("💸 Spent", f"₹ {total}")
-    m4.metric("🏦 Savings", f"₹ {savings}")
-    m5.metric("💚 Health Score", f"{score}/100", status)
-
-    # ================= EXPENSE TABLE =================
-
-    st.subheader("📊 Expense Manager")
-
-    df = expenses[expenses["User"] == st.session_state.user].copy()
-
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-
-    df = df.sort_values(by="Date", ascending=False)
-
-    df = df.reset_index(drop=True)
-
-    df.insert(0,"S.No",range(1,len(df)+1))
-
-    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
-
-    st.dataframe(
-        df[["S.No","Date","Category","Amount","Description"]],
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # ================= CATEGORY CHART =================
-
-    st.subheader("📊 Category Distribution")
-
-    cat = user_expenses.groupby("Category")["Amount"].sum()
-
-    if not cat.empty:
-
-        fig1, ax1 = plt.subplots()
-
-        ax1.pie(cat, labels=cat.index, autopct="%1.1f%%")
-
-        st.pyplot(fig1)
-
-    # ================= DAILY SPENDING =================
-
-    st.subheader("📈 Daily Spending")
-
-    daily = user_expenses.groupby(user_expenses["Date"].dt.date)["Amount"].sum()
-
-    if not daily.empty:
-
-        daily = daily.sort_index()
-
-        fig2, ax2 = plt.subplots()
-
-        ax2.plot(daily.index, daily.values, marker="o")
-
-        ax2.set_xlabel("Date")
-
-        ax2.set_ylabel("Amount")
-
-        plt.xticks(rotation=45)
-
-        st.pyplot(fig2)
-
-    # ================= MONTHLY TREND =================
-
-    st.subheader("📉 Monthly Trend")
-
-    monthly = user_expenses.groupby(
-        user_expenses["Date"].dt.to_period("M")
-    )["Amount"].sum()
-
-    if not monthly.empty:
-
-        monthly = monthly.sort_index()
-
-        monthly.index = monthly.index.astype(str)
-
-        fig4, ax4 = plt.subplots()
-
-        ax4.plot(monthly.index, monthly.values, marker="o")
-
-        ax4.set_xlabel("Month")
-
-        ax4.set_ylabel("Total Spending")
-
-        ax4.grid(True)
-
-        st.pyplot(fig4)
-
-    # ================= PREDICTION =================
-
-    st.subheader("🔮 Month-End Prediction")
-
-    cum = user_expenses.groupby(
-        user_expenses["Date"].dt.day
-    )["Amount"].sum().cumsum()
-
-    if len(cum) > 1:
-
-        X = np.array(cum.index).reshape(-1,1)
-
-        y = cum.values
-
-        model = LinearRegression()
-
-        model.fit(X,y)
-
-        future = np.array(range(1,31)).reshape(-1,1)
-
-        pred = model.predict(future)
-
-        fig3, ax3 = plt.subplots()
-
-        ax3.plot(cum.index, y, label="Actual")
-
-        ax3.plot(range(1,31), pred, "--", label="Prediction")
-
-        ax3.set_xlabel("Day of Month")
-
-        ax3.set_ylabel("Cumulative Spending")
-
-        ax3.legend()
-
-        st.pyplot(fig3)
-
-    # ================= SMART SUGGESTIONS =================
-
-    st.subheader("😊 Smart Suggestions")
-
-    suggestions = []
-
-    if not user_expenses.empty:
-
-        highest = user_expenses.groupby("Category")["Amount"].sum().idxmax()
-
-        suggestions.append(f"Highest spending category: {highest}")
-
-    suggestions.append("Maintain at least 20% savings.")
-
-    suggestions.append("Reduce unnecessary expenses.")
-
-    suggestions.append("Review budget weekly.")
-
-    suggestions.append("Avoid impulse purchases.")
-
-    suggestions.append("Plan major expenses in advance.")
-
-    suggestions.append("Track expenses daily for better control.")
-
-    suggestions.append("Set monthly spending limits.")
-
-    suggestions.append("Use savings goals to stay motivated.")
-
-    suggestions.append("Monitor high spending categories.")
-
-    suggestions.append("Balance needs vs wants before spending.")
-
-    for s in suggestions:
-        st.write(f"• {s}")
+    m1,m2,m3,m4,m5 = st.columns(5)
+
+    m1.metric("💰 Income",f"₹ {income}")
+    m2.metric("📊 Budget",f"₹ {budget}")
+    m3.metric("💸 Spent",f"₹ {total}")
+    m4.metric("🏦 Savings",f"₹ {savings}")
+    m5.metric("💚 Health Score",f"{score}/100",status)
+
+    st.divider()
 
     # ================= AI ASSISTANT =================
 
@@ -294,3 +140,144 @@ def dashboard():
         )
 
         st.write(answer)
+
+    st.divider()
+
+    # ================= EXPENSE TABLE =================
+
+    st.subheader("📊 Expense Manager")
+
+    df = expenses[expenses["User"] == st.session_state.user].copy()
+
+    df["Date"] = pd.to_datetime(df["Date"],errors="coerce")
+
+    df = df.sort_values("Date")
+
+    df = df.reset_index(drop=True)
+
+    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
+
+    st.dataframe(
+        df[["Date","Category","Amount","Description"]],
+        use_container_width=True
+    )
+
+    st.divider()
+
+    # ================= CATEGORY CHART =================
+
+    st.subheader("📊 Category Distribution")
+
+    cat = user_expenses.groupby("Category")["Amount"].sum()
+
+    if not cat.empty:
+
+        fig1,ax1 = plt.subplots()
+
+        ax1.pie(cat,labels=cat.index,autopct="%1.1f%%")
+
+        st.pyplot(fig1)
+
+    # ================= DAILY SPENDING =================
+
+    st.subheader("📊 Daily Spending")
+
+    daily = user_expenses.groupby(user_expenses["Date"].dt.date)["Amount"].sum()
+
+    if not daily.empty:
+
+        daily = daily.sort_index()
+
+        fig2,ax2 = plt.subplots()
+
+        ax2.bar(daily.index,daily.values)
+
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel("Amount")
+
+        plt.xticks(rotation=90)
+
+        st.pyplot(fig2)
+
+    # ================= MONTHLY TREND =================
+
+    st.subheader("📉 Monthly Trend")
+
+    monthly = user_expenses.groupby(user_expenses["Date"].dt.day)["Amount"].sum()
+
+    if not monthly.empty:
+
+        monthly = monthly.sort_index()
+
+        fig3,ax3 = plt.subplots()
+
+        ax3.plot(monthly.index,monthly.values,marker="o")
+
+        ax3.set_xlabel("Date")
+        ax3.set_ylabel("Amount")
+
+        ax3.grid(True)
+
+        st.pyplot(fig3)
+
+    # ================= PREDICTION =================
+
+    st.subheader("🔮 Month-End Prediction")
+
+    cum = user_expenses.groupby(user_expenses["Date"].dt.day)["Amount"].sum().cumsum()
+
+    if len(cum) > 1:
+
+        X = np.array(cum.index).reshape(-1,1)
+
+        y = cum.values
+
+        model = LinearRegression()
+
+        model.fit(X,y)
+
+        future = np.array(range(1,31)).reshape(-1,1)
+
+        pred = model.predict(future)
+
+        fig4,ax4 = plt.subplots()
+
+        ax4.plot(cum.index,y,label="Actual")
+
+        ax4.plot(range(1,31),pred,"--",label="Prediction")
+
+        ax4.set_xlabel("Day")
+        ax4.set_ylabel("Cumulative Spending")
+
+        ax4.legend()
+
+        st.pyplot(fig4)
+
+    st.divider()
+
+    # ================= SMART SUGGESTIONS =================
+
+    st.subheader("💡 Smart Suggestions")
+
+    suggestions = []
+
+    if not cat.empty:
+        top_category = cat.idxmax()
+        suggestions.append(f"Highest spending category: {top_category}")
+
+    if savings < 0:
+        suggestions.append("You are overspending. Reduce unnecessary expenses.")
+
+    if savings > income*0.2:
+        suggestions.append("Maintain at least 20% savings.")
+
+    suggestions.append("Review budget weekly.")
+    suggestions.append("Avoid impulse purchases.")
+    suggestions.append("Plan major expenses in advance.")
+    suggestions.append("Track small daily expenses carefully.")
+    suggestions.append("Use budgeting categories effectively.")
+    suggestions.append("Limit entertainment spending.")
+    suggestions.append("Consider saving for emergency funds.")
+
+    for s in suggestions:
+        st.write(f"• {s}")
