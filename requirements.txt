@@ -9,4 +9,10 @@ streamlit-mic-recorder
 google-genai
 requests
 python-dateutil
+google-generativeai
+sounddevice
+scipy
+streamlit-oauth
+
+
 
