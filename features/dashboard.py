@@ -17,6 +17,7 @@ def dashboard():
     user_data = users[users["Name"] == st.session_state.user].iloc[0]
 
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
+
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     col1, col2 = st.columns([9,1])
@@ -66,15 +67,16 @@ def dashboard():
     if st.sidebar.button("➕ Add Expense"):
 
         new_row = pd.DataFrame({
-            "Date":[exp_date.strftime("%Y-%m-%d")],
+            "Date":[exp_date],
             "Category":[exp_cat],
             "Amount":[exp_amt],
             "Description":[exp_desc],
             "User":[st.session_state.user]
         })
 
-        expenses = pd.concat([expenses,new_row], ignore_index=True)
-        expenses.to_csv("expenses.csv", index=False)
+        expenses = pd.concat([expenses,new_row],ignore_index=True)
+
+        expenses.to_csv("expenses.csv",index=False)
 
         st.rerun()
 
@@ -97,12 +99,15 @@ def dashboard():
         if ratio <= 0.5:
             score = 90
             status = "Excellent"
+
         elif ratio <= 0.7:
             score = 70
             status = "Good"
+
         elif ratio <= 0.9:
             score = 50
             status = "Warning"
+
         else:
             score = 30
             status = "Danger"
@@ -193,12 +198,17 @@ def dashboard():
     df = expenses[expenses["User"] == st.session_state.user].copy()
 
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df = df.sort_values("Date", ascending=False)
+
+    df = df.sort_values(by="Date", ascending=False)
+
+    df = df.reset_index(drop=True)
+
+    df.insert(0,"S.No", range(1,len(df)+1))
 
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
     st.dataframe(
-        df[["Date","Category","Amount","Description"]],
+        df[["S.No","Date","Category","Amount","Description"]],
         use_container_width=True
     )
 
@@ -224,14 +234,16 @@ def dashboard():
 
     if not daily.empty:
 
-        fig2, ax2 = plt.subplots()
-
         daily = daily.sort_index()
 
-        daily.plot(kind="bar", ax=ax2)
+        fig2, ax2 = plt.subplots()
+
+        ax2.plot(daily.index, daily.values, marker="o")
 
         ax2.set_xlabel("Date")
         ax2.set_ylabel("Amount")
+
+        plt.xticks(rotation=45)
 
         st.pyplot(fig2)
 
