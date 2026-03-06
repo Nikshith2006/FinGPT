@@ -3,134 +3,143 @@ import pandas as pd
 from datetime import datetime, timedelta
 import re
 
-
 def parse_voice_expense(text):
 
-    text = text.lower()
+```
+# safety: ensure text is string
+if not isinstance(text, str):
+    return datetime.today(), "Other", 0, ""
 
-    amount = 0
-    category = "Other"
-    description = text
-    date = datetime.today()
+text = text.lower()
 
-    # -------- Amount extraction --------
-    amt = re.findall(r'\d+', text)
+amount = 0
+category = "Other"
+description = text
+date = datetime.today()
 
-    if amt:
-        amount = int(amt[0])
+# -------- Amount extraction --------
+amt = re.findall(r'\d+', text)
 
-    # -------- Category detection --------
-    if "food" in text or "burger" in text or "pizza" in text:
-        category = "Food"
+if amt:
+    amount = int(amt[0])
 
-    elif "rent" in text:
-        category = "Rent"
+# -------- Category detection --------
+if "food" in text or "burger" in text or "pizza" in text:
+    category = "Food"
 
-    elif "travel" in text or "bus" in text or "ticket" in text:
-        category = "Transport"
+elif "rent" in text:
+    category = "Rent"
 
-    elif "shopping" in text or "dress" in text:
-        category = "Shopping"
+elif "travel" in text or "bus" in text or "ticket" in text:
+    category = "Transport"
 
-    elif "movie" in text or "entertainment" in text:
-        category = "Entertainment"
+elif "shopping" in text or "dress" in text:
+    category = "Shopping"
 
-    # -------- Date logic --------
-    today = datetime.today()
+elif "movie" in text or "entertainment" in text:
+    category = "Entertainment"
 
-    if "day before yesterday" in text:
-        date = today - timedelta(days=2)
+# -------- Date logic --------
+today = datetime.today()
 
-    elif "yesterday" in text:
-        date = today - timedelta(days=1)
+if "day before yesterday" in text:
+    date = today - timedelta(days=2)
 
-    else:
-        date = today
+elif "yesterday" in text:
+    date = today - timedelta(days=1)
 
-    return date, category, amount, description
+else:
+    date = today
 
+return date, category, amount, description
+```
 
 def voice_entry(expenses):
 
-    st.markdown("### 🎤 Voice Entry")
+```
+st.markdown("### 🎤 Voice Entry")
 
-    if "voice_active" not in st.session_state:
-        st.session_state.voice_active = False
+if "voice_active" not in st.session_state:
+    st.session_state.voice_active = False
 
-    if "voice_text" not in st.session_state:
-        st.session_state.voice_text = ""
+if "voice_text" not in st.session_state:
+    st.session_state.voice_text = ""
 
-    # ---------------- BUTTON ----------------
+# ---------- BUTTON ----------
 
-    if st.button("🎤 Voice Entry"):
+if st.button("🎤 Voice Entry"):
+    st.session_state.voice_active = True
 
-        st.session_state.voice_active = True
+# ---------- RECORDING UI ----------
 
-    # ---------------- RECORDING ----------------
+if st.session_state.voice_active:
 
-    if st.session_state.voice_active:
+    st.info("🎙 Recording... Speak now (5 seconds)")
 
-        st.info("🎙 Recording... Speak now (5 seconds)")
+    voice_html = """
+    <script>
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-IN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
 
-        voice_html = """
-        <button id="start" style="display:none"></button>
+    recognition.start();
 
-        <script>
-        var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = "en-IN";
-        recognition.continuous = false;
-        recognition.interimResults = false;
+    setTimeout(() => {
+        recognition.stop();
+    }, 5000);
 
-        recognition.start();
+    recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
 
-        setTimeout(function(){
-            recognition.stop();
-        },5000);
-
-        recognition.onresult = function(event){
-            var text = event.results[0][0].transcript;
-
-            const streamlitMsg = {
-                isStreamlitMessage: true,
-                type: "streamlit:setComponentValue",
-                value: text
-            };
-
-            window.parent.postMessage(streamlitMsg, "*");
+        const streamlitMessage = {
+            isStreamlitMessage: true,
+            type: "streamlit:setComponentValue",
+            value: text
         };
-        </script>
-        """
 
-        voice_text = st.components.v1.html(voice_html, height=0)
+        window.parent.postMessage(streamlitMessage, "*");
+    };
+    </script>
+    """
 
-        if voice_text:
-            st.session_state.voice_text = voice_text
+    voice_text = st.components.v1.html(voice_html, height=0)
 
-    # ---------------- PROCESS TEXT ----------------
+    # ensure it is a string
+    if isinstance(voice_text, str):
+        st.session_state.voice_text = voice_text
 
-    voice_text = st.session_state.get("voice_text", "")
+# ---------- RECEIVE VOICE ----------
 
-    if voice_text:
+voice_text = st.session_state.get("voice_text", "")
 
-        st.success(f"🗣 Recognized: {voice_text}")
+# ignore invalid values
+if not isinstance(voice_text, str):
+    voice_text = ""
 
-        date, category, amount, description = parse_voice_expense(voice_text)
+if voice_text:
 
-        new_row = pd.DataFrame({
-            "Date":[date],
-            "Category":[category],
-            "Amount":[amount],
-            "Description":[description],
-            "User":[st.session_state.user]
-        })
+    st.success(f"🗣 Recognized: {voice_text}")
 
-        expenses = pd.concat([expenses,new_row],ignore_index=True)
+    date, category, amount, description = parse_voice_expense(voice_text)
 
-        expenses.to_csv("expenses.csv",index=False)
+    new_row = pd.DataFrame({
+        "Date":[date],
+        "Category":[category],
+        "Amount":[amount],
+        "Description":[description],
+        "User":[st.session_state.user]
+    })
 
-        st.session_state.voice_text = ""
-        st.session_state.voice_active = False
+    expenses = pd.concat([expenses,new_row],ignore_index=True)
 
-        st.success("✅ Expense added from voice")
+    expenses.to_csv("expenses.csv",index=False)
 
-        st.rerun()
+    # reset
+    st.session_state.voice_text = ""
+    st.session_state.voice_active = False
+
+    st.success("✅ Expense added from voice")
+
+    st.rerun()
+```
