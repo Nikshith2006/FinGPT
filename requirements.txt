@@ -13,6 +13,11 @@ google-generativeai
 sounddevice
 scipy
 streamlit-oauth
+streamlit-webrtc
+av
+pydub
+SpeechRecognition
+
 
 
 
