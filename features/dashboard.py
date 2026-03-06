@@ -122,41 +122,67 @@ def dashboard():
 
     st.subheader("💡 Smart Suggestions")
 
-    suggestions = []
+suggestions = []
 
-    if income > 0:
+if income > 0:
 
-        if total > budget:
-            suggestions.append("⚠️ You exceeded your monthly budget")
+    spending_ratio = total / income
 
-        if savings < 0:
-            suggestions.append("❗ Your spending is higher than your income")
+    if total > budget and budget > 0:
+        suggestions.append("⚠️ You exceeded your monthly budget.")
 
-        if "Food" in user_expenses["Category"].values:
-            food_spend = user_expenses[
-                user_expenses["Category"] == "Food"
-            ]["Amount"].sum()
+    if spending_ratio > 0.9:
+        suggestions.append("🚨 You are spending almost all of your income.")
 
-            if food_spend > income * 0.3:
-                suggestions.append(
-                    "🍔 High spending on food detected"
-                )
+    if savings < 0:
+        suggestions.append("❗ Your expenses are higher than your income.")
 
-        if "Shopping" in user_expenses["Category"].values:
-            shop_spend = user_expenses[
-                user_expenses["Category"] == "Shopping"
-            ]["Amount"].sum()
+    if savings > income * 0.3:
+        suggestions.append("✅ Great job! Your savings rate is excellent.")
 
-            if shop_spend > income * 0.25:
-                suggestions.append(
-                    "🛍 Try reducing shopping expenses"
-                )
+    # Category analysis
+    category_spending = user_expenses.groupby("Category")["Amount"].sum()
 
-    if suggestions:
-        for s in suggestions:
-            st.write(s)
-    else:
-        st.success("Your spending looks healthy 👍")
+    if "Food" in category_spending:
+        if category_spending["Food"] > income * 0.30:
+            suggestions.append("🍔 High spending on Food detected. Try cooking more at home.")
+
+    if "Shopping" in category_spending:
+        if category_spending["Shopping"] > income * 0.25:
+            suggestions.append("🛍 Shopping expenses are high this month.")
+
+    if "Entertainment" in category_spending:
+        if category_spending["Entertainment"] > income * 0.20:
+            suggestions.append("🎬 Entertainment spending is above recommended levels.")
+
+    if "Transport" in category_spending:
+        if category_spending["Transport"] > income * 0.15:
+            suggestions.append("🚕 Transport costs are relatively high.")
+
+    # Spending trend
+    if len(user_expenses) > 5:
+        avg_spend = user_expenses["Amount"].mean()
+
+        if avg_spend > income * 0.1:
+            suggestions.append("📊 Your average transaction amount is high.")
+
+    # Budget usage
+    if budget > 0:
+        budget_ratio = total / budget
+
+        if budget_ratio > 0.8 and budget_ratio < 1:
+            suggestions.append("⚠️ You have used more than 80% of your budget.")
+
+        if budget_ratio < 0.5:
+            suggestions.append("👍 Good budget control so far!")
+
+# Display suggestions
+
+if suggestions:
+    for s in suggestions:
+        st.write(s)
+else:
+    st.success("Your spending looks healthy 👍")
 
     # ================= AI ASSISTANT =================
 
