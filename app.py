@@ -7,7 +7,7 @@ from features.dashboard import dashboard
 # ================= VOICE SESSION =================
 
 if "voice_text" not in st.session_state:
-st.session_state.voice_text = ""
+    st.session_state.voice_text = ""
 
 # ================= PAGE CONFIG =================
 
@@ -18,14 +18,14 @@ load_dotenv()
 # ================= USER SESSION =================
 
 if "user" not in st.session_state:
-st.session_state.user = None
+    st.session_state.user = None
 
 if "edit_mode" not in st.session_state:
-st.session_state.edit_mode = False
+    st.session_state.edit_mode = False
 
 # ================= APP ROUTING =================
 
 if st.session_state.user is None:
-login()
+    login()
 else:
-dashboard()
+    dashboard()
