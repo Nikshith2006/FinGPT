@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-from features.voice_entry import voice_entry
+from .voice_entry import voice_entry
 from features.dashboard_ui import show_metrics_ai_table
 from features.dashboard_charts import show_charts_and_suggestions
 
