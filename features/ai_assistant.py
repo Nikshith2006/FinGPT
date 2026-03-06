@@ -1,9 +1,8 @@
 import streamlit as st
 from google import genai
 
-client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
-def ai_assistant(income,budget,total):
+def ai_assistant(user_expenses, income):
 
     st.subheader("🤖 AI Financial Assistant")
 
@@ -11,15 +10,27 @@ def ai_assistant(income,budget,total):
 
     if question:
 
-        context=f"""
-        Income:{income}
-        Budget:{budget}
-        Spent:{total}
+        total_spent = 0
+
+        if not user_expenses.empty:
+            total_spent = user_expenses["Amount"].sum()
+
+        context = f"""
+        Monthly Income: {income}
+        Total Spending: {total_spent}
         """
 
-        reply = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=context+question
-        )
+        try:
+            client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
-        st.write(reply.text)
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=context + question
+            )
+
+            st.write(response.text)
+
+        except Exception as e:
+
+            st.error("AI assistant error")
+            st.write(e)
