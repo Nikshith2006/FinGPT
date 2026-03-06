@@ -87,7 +87,6 @@ def dashboard():
     total = user_expenses["Amount"].sum()
     savings = income - total
 
-    # Health score calculation
     score = 0
     status = "Unknown"
 
@@ -98,20 +97,16 @@ def dashboard():
         if ratio <= 0.5:
             score = 90
             status = "Excellent"
-
         elif ratio <= 0.7:
             score = 70
             status = "Good"
-
         elif ratio <= 0.9:
             score = 50
             status = "Warning"
-
         else:
             score = 30
             status = "Danger"
 
-    # All metrics side by side
     m1, m2, m3, m4, m5 = st.columns(5)
 
     m1.metric("💰 Income", f"₹ {income}")
@@ -195,54 +190,17 @@ def dashboard():
 
     st.subheader("📊 Expense Manager")
 
-    col1, col2 = st.columns([9,1])
-
-    with col2:
-        if st.button("✏️"):
-            st.session_state.edit_mode = not st.session_state.edit_mode
-
     df = expenses[expenses["User"] == st.session_state.user].copy()
 
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df["Date"] = df["Date"].fillna(datetime.today())
+    df = df.sort_values("Date", ascending=False)
+
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
-    if st.session_state.edit_mode:
-
-        edited = st.data_editor(
-            df[["Date","Category","Amount","Description"]],
-            use_container_width=True
-        )
-
-        if st.button("💾 Save Changes"):
-
-            expenses.loc[
-                df.index,
-                ["Date","Category","Amount","Description"]
-            ] = edited
-
-            expenses.to_csv("expenses.csv", index=False)
-
-            st.session_state.edit_mode = False
-            st.rerun()
-
-    else:
-
-        for i, row in df.reset_index().iterrows():
-
-            cols = st.columns([2,2,1,3,1])
-
-            cols[0].write(row["Date"])
-            cols[1].write(row["Category"])
-            cols[2].write(row["Amount"])
-            cols[3].write(row["Description"])
-
-            if cols[4].button("🗑️", key=f"del{i}"):
-
-                expenses = expenses.drop(row["index"])
-                expenses.to_csv("expenses.csv", index=False)
-
-                st.rerun()
+    st.dataframe(
+        df[["Date","Category","Amount","Description"]],
+        use_container_width=True
+    )
 
     # ================= CATEGORY CHART =================
 
@@ -268,7 +226,12 @@ def dashboard():
 
         fig2, ax2 = plt.subplots()
 
+        daily = daily.sort_index()
+
         daily.plot(kind="bar", ax=ax2)
+
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel("Amount")
 
         st.pyplot(fig2)
 
@@ -282,6 +245,8 @@ def dashboard():
 
     if not monthly.empty:
 
+        monthly = monthly.sort_index()
+
         monthly.index = monthly.index.astype(str)
 
         fig4, ax4 = plt.subplots()
@@ -289,7 +254,9 @@ def dashboard():
         ax4.plot(monthly.index, monthly.values, marker="o")
 
         ax4.set_xlabel("Month")
-        ax4.set_ylabel("Spending")
+        ax4.set_ylabel("Total Spending")
+
+        ax4.grid(True)
 
         st.pyplot(fig4)
 
@@ -317,6 +284,9 @@ def dashboard():
         ax3.plot(cum.index, y, label="Actual")
 
         ax3.plot(range(1,31), pred, "--", label="Prediction")
+
+        ax3.set_xlabel("Day of Month")
+        ax3.set_ylabel("Cumulative Spending")
 
         ax3.legend()
 
