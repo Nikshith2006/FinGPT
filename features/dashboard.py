@@ -1,12 +1,10 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from datetime import datetime
-from sklearn.linear_model import LinearRegression
 
 from features.voice_entry import voice_entry
-from features.ai_assistant import ask_ai
+from features.dashboard_ui import show_metrics_ai_table
+from features.dashboard_charts import show_charts_and_suggestions
 
 
 def dashboard():
@@ -15,9 +13,6 @@ def dashboard():
     expenses = pd.read_csv("expenses.csv")
 
     user_data = users[users["Name"] == st.session_state.user].iloc[0]
-
-    user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
-    user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     col1, col2 = st.columns([9,1])
 
@@ -62,16 +57,12 @@ def dashboard():
     )
 
     exp_amt = st.sidebar.number_input("💵 Amount", min_value=1)
-
     exp_desc = st.sidebar.text_input("📝 Description")
 
     if st.sidebar.button("➕ Add Expense"):
 
-        if exp_date is None:
-            exp_date = datetime.today()
-
         new_row = pd.DataFrame({
-            "Date":[pd.to_datetime(exp_date)],
+            "Date":[exp_date],
             "Category":[exp_cat],
             "Amount":[exp_amt],
             "Description":[exp_desc],
@@ -88,203 +79,15 @@ def dashboard():
 
     voice_entry(expenses)
 
-    # refresh expenses after any update
+    # refresh
     expenses = pd.read_csv("expenses.csv")
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
-    # ================= METRICS =================
+    # ================= UI SECTION =================
 
-    total = user_expenses["Amount"].sum()
-    savings = income - total
+    show_metrics_ai_table(income, budget, user_expenses, expenses)
 
-    score = 0
-    status = "Unknown"
+    # ================= CHARTS SECTION =================
 
-    if income > 0:
-
-        ratio = total / income
-
-        if ratio <= 0.5:
-            score = 90
-            status = "Excellent"
-
-        elif ratio <= 0.7:
-            score = 70
-            status = "Good"
-
-        elif ratio <= 0.9:
-            score = 50
-            status = "Warning"
-
-        else:
-            score = 30
-            status = "Danger"
-
-    m1,m2,m3,m4,m5 = st.columns(5)
-
-    m1.metric("💰 Income",f"₹ {income}")
-    m2.metric("📊 Budget",f"₹ {budget}")
-    m3.metric("💸 Spent",f"₹ {total}")
-    m4.metric("🏦 Savings",f"₹ {savings}")
-    m5.metric("💚 Health Score",f"{score}/100",status)
-
-    st.divider()
-
-    # ================= AI ASSISTANT =================
-
-    st.subheader("🤖 AI Financial Assistant")
-
-    question = st.text_input("Ask about your finances")
-
-    if question:
-
-        answer = ask_ai(
-            income,
-            budget,
-            user_expenses["Amount"].sum(),
-            question
-        )
-
-        st.write(answer)
-
-    st.divider()
-
-    # ================= EXPENSE TABLE =================
-
-    st.subheader("📊 Expense Manager")
-
-    df = expenses[expenses["User"] == st.session_state.user].copy()
-
-    df["Date"] = pd.to_datetime(df["Date"],errors="coerce")
-
-    df = df.sort_values("Date")
-
-    df = df.reset_index(drop=True)
-
-    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
-
-    st.dataframe(
-        df[["Date","Category","Amount","Description"]],
-        use_container_width=True
-    )
-
-    st.divider()
-
-    # ================= CATEGORY CHART =================
-
-    st.subheader("📊 Category Distribution")
-
-    cat = user_expenses.groupby("Category")["Amount"].sum()
-
-    if not cat.empty:
-
-        fig1,ax1 = plt.subplots()
-
-        ax1.pie(cat,labels=cat.index,autopct="%1.1f%%")
-
-        st.pyplot(fig1)
-
-    # ================= DAILY SPENDING =================
-
-    st.subheader("📊 Daily Spending")
-
-    daily = user_expenses.groupby(user_expenses["Date"].dt.date)["Amount"].sum()
-
-    if not daily.empty:
-
-        daily = daily.sort_index()
-
-        fig2,ax2 = plt.subplots()
-
-        ax2.bar(daily.index,daily.values)
-
-        ax2.set_xlabel("Date")
-        ax2.set_ylabel("Amount")
-
-        plt.xticks(rotation=90)
-
-        st.pyplot(fig2)
-
-    # ================= MONTHLY TREND =================
-
-    st.subheader("📉 Monthly Trend")
-
-    monthly = user_expenses.groupby(user_expenses["Date"].dt.day)["Amount"].sum()
-
-    if not monthly.empty:
-
-        monthly = monthly.sort_index()
-
-        fig3,ax3 = plt.subplots()
-
-        ax3.plot(monthly.index,monthly.values,marker="o")
-
-        ax3.set_xlabel("Date")
-        ax3.set_ylabel("Amount")
-
-        ax3.grid(True)
-
-        st.pyplot(fig3)
-
-    # ================= MONTH-END PREDICTION =================
-
-    st.subheader("🔮 Month-End Prediction")
-
-    cum = user_expenses.groupby(user_expenses["Date"].dt.day)["Amount"].sum().cumsum()
-
-    if len(cum) > 1:
-
-        X = np.array(cum.index).reshape(-1,1)
-
-        y = cum.values
-
-        model = LinearRegression()
-        model.fit(X,y)
-
-        future = np.array(range(1,31)).reshape(-1,1)
-
-        pred = model.predict(future)
-
-        fig4,ax4 = plt.subplots()
-
-        ax4.plot(cum.index,y,label="Actual")
-
-        ax4.plot(range(1,31),pred,"--",label="Prediction")
-
-        ax4.set_xlabel("Day")
-        ax4.set_ylabel("Cumulative Spending")
-
-        ax4.legend()
-
-        st.pyplot(fig4)
-
-    st.divider()
-
-    # ================= SMART SUGGESTIONS =================
-
-    st.subheader("💡 Smart Suggestions")
-
-    suggestions = []
-
-    if not cat.empty:
-        top_category = cat.idxmax()
-        suggestions.append(f"Highest spending category: {top_category}")
-
-    if savings < 0:
-        suggestions.append("You are overspending. Reduce unnecessary expenses.")
-
-    if savings > income*0.2:
-        suggestions.append("Maintain at least 20% savings.")
-
-    suggestions.append("Review budget weekly.")
-    suggestions.append("Avoid impulse purchases.")
-    suggestions.append("Plan major expenses in advance.")
-    suggestions.append("Track expenses daily for better control.")
-    suggestions.append("Set monthly spending limits.")
-    suggestions.append("Use savings goals to stay motivated.")
-    suggestions.append("Monitor high spending categories.")
-    suggestions.append("Balance needs vs wants before spending.")
-
-    for s in suggestions:
-        st.write(f"• {s}")
+    show_charts_and_suggestions(income, user_expenses)
