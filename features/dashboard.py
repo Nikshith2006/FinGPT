@@ -17,7 +17,6 @@ def dashboard():
     user_data = users[users["Name"] == st.session_state.user].iloc[0]
 
     user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
-
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     col1, col2 = st.columns([9,1])
@@ -68,8 +67,11 @@ def dashboard():
 
     if st.sidebar.button("➕ Add Expense"):
 
+        if exp_date is None:
+            exp_date = datetime.today()
+
         new_row = pd.DataFrame({
-            "Date":[exp_date.strftime("%Y-%m-%d")],
+            "Date":[pd.to_datetime(exp_date)],
             "Category":[exp_cat],
             "Amount":[exp_amt],
             "Description":[exp_desc],
@@ -85,6 +87,11 @@ def dashboard():
     # ================= VOICE ENTRY =================
 
     voice_entry(expenses)
+
+    # refresh expenses after any update
+    expenses = pd.read_csv("expenses.csv")
+    user_expenses = expenses[expenses["User"] == st.session_state.user].copy()
+    user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     # ================= METRICS =================
 
@@ -220,7 +227,7 @@ def dashboard():
 
         st.pyplot(fig3)
 
-    # ================= PREDICTION =================
+    # ================= MONTH-END PREDICTION =================
 
     st.subheader("🔮 Month-End Prediction")
 
@@ -233,7 +240,6 @@ def dashboard():
         y = cum.values
 
         model = LinearRegression()
-
         model.fit(X,y)
 
         future = np.array(range(1,31)).reshape(-1,1)
@@ -274,10 +280,11 @@ def dashboard():
     suggestions.append("Review budget weekly.")
     suggestions.append("Avoid impulse purchases.")
     suggestions.append("Plan major expenses in advance.")
-    suggestions.append("Track small daily expenses carefully.")
-    suggestions.append("Use budgeting categories effectively.")
-    suggestions.append("Limit entertainment spending.")
-    suggestions.append("Consider saving for emergency funds.")
+    suggestions.append("Track expenses daily for better control.")
+    suggestions.append("Set monthly spending limits.")
+    suggestions.append("Use savings goals to stay motivated.")
+    suggestions.append("Monitor high spending categories.")
+    suggestions.append("Balance needs vs wants before spending.")
 
     for s in suggestions:
         st.write(f"• {s}")
