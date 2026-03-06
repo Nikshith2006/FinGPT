@@ -60,36 +60,55 @@ def voice_entry(expenses):
     if "voice_text" not in st.session_state:
         st.session_state.voice_text = ""
 
+    # ---------------- BUTTON ----------------
+
     if st.button("🎤 Voice Entry"):
+
         st.session_state.voice_active = True
+
+    # ---------------- RECORDING ----------------
 
     if st.session_state.voice_active:
 
         st.info("🎙 Recording... Speak now (5 seconds)")
 
         voice_html = """
+        <button id="start" style="display:none"></button>
+
         <script>
-        const recognition = new webkitSpeechRecognition();
-        recognition.lang = 'en-IN';
+        var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = "en-IN";
         recognition.continuous = false;
         recognition.interimResults = false;
 
         recognition.start();
 
-        setTimeout(() => {
+        setTimeout(function(){
             recognition.stop();
-        }, 5000);
+        },5000);
 
-        recognition.onresult = function(event) {
-            const text = event.results[0][0].transcript;
-            window.parent.postMessage({type: "voice_text", text: text}, "*");
-        }
+        recognition.onresult = function(event){
+            var text = event.results[0][0].transcript;
+
+            const streamlitMsg = {
+                isStreamlitMessage: true,
+                type: "streamlit:setComponentValue",
+                value: text
+            };
+
+            window.parent.postMessage(streamlitMsg, "*");
+        };
         </script>
         """
 
-        st.components.v1.html(voice_html, height=0)
+        voice_text = st.components.v1.html(voice_html, height=0)
 
-    voice_text = st.session_state.get("voice_text","")
+        if voice_text:
+            st.session_state.voice_text = voice_text
+
+    # ---------------- PROCESS TEXT ----------------
+
+    voice_text = st.session_state.get("voice_text", "")
 
     if voice_text:
 
@@ -110,6 +129,7 @@ def voice_entry(expenses):
         expenses.to_csv("expenses.csv",index=False)
 
         st.session_state.voice_text = ""
+        st.session_state.voice_active = False
 
         st.success("✅ Expense added from voice")
 
