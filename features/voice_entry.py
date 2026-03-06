@@ -1,6 +1,8 @@
 import streamlit as st
 import speech_recognition as sr
 import tempfile
+import pandas as pd
+import re
 import time
 from streamlit_mic_recorder import mic_recorder
 
@@ -11,7 +13,7 @@ def voice_entry(expenses, user, detect_spoken_date):
 
     audio = mic_recorder(
         start_prompt="🎙 Start Recording",
-        stop_prompt="⏹ Stop",
+        stop_prompt="⏹ Stop Recording",
         just_once=True,
         key="voice"
     )
@@ -19,38 +21,29 @@ def voice_entry(expenses, user, detect_spoken_date):
     if audio:
 
         # -------- Recording Animation --------
-        record_placeholder = st.empty()
+        status = st.empty()
 
-        record_placeholder.markdown(
-        """
-        <div style="text-align:center;font-size:30px;color:red;">
-        🔴 Recording... (5 seconds)
-        </div>
-        """,
+        status.markdown(
+        "<h3 style='color:red;text-align:center;'>🔴 Recording...</h3>",
         unsafe_allow_html=True
         )
 
-        time.sleep(5)
+        time.sleep(2)
 
-        record_placeholder.markdown(
-        """
-        <div style="text-align:center;font-size:30px;color:green;">
-        ✅ Recording Finished
-        </div>
-        """,
+        status.markdown(
+        "<h3 style='color:green;text-align:center;'>✅ Recording Finished</h3>",
         unsafe_allow_html=True
         )
 
         try:
 
-            # -------- Save Audio --------
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            # -------- Save audio as WEBM --------
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
                 tmp.write(audio["bytes"])
                 audio_path = tmp.name
 
             recognizer = sr.Recognizer()
 
-            # -------- Speech Recognition --------
             with sr.AudioFile(audio_path) as source:
                 audio_data = recognizer.record(source)
 
@@ -59,24 +52,23 @@ def voice_entry(expenses, user, detect_spoken_date):
             st.success(f"You said: {text}")
 
             # -------- Extract Amount --------
-            import re
             amount_match = re.search(r"\d+", text)
             amount = int(amount_match.group()) if amount_match else 0
 
-            # -------- Detect Category --------
             text_lower = text.lower()
 
-            if "food" in text_lower or "dinner" in text_lower or "lunch" in text_lower:
+            # -------- Category Detection --------
+            if any(word in text_lower for word in ["food","dinner","lunch","breakfast"]):
                 category = "Food"
             elif "rent" in text_lower:
                 category = "Rent"
-            elif "shopping" in text_lower or "buy" in text_lower:
+            elif any(word in text_lower for word in ["shopping","buy","clothes"]):
                 category = "Shopping"
-            elif "travel" in text_lower or "trip" in text_lower:
+            elif any(word in text_lower for word in ["travel","trip"]):
                 category = "Travel"
-            elif "movie" in text_lower:
+            elif any(word in text_lower for word in ["movie","entertainment"]):
                 category = "Entertainment"
-            elif "bus" in text_lower or "metro" in text_lower:
+            elif any(word in text_lower for word in ["bus","metro","ticket"]):
                 category = "Transport"
             else:
                 category = "Food"
@@ -85,9 +77,8 @@ def voice_entry(expenses, user, detect_spoken_date):
                 st.error("Could not detect amount")
                 return
 
+            # -------- Date Detection --------
             date = detect_spoken_date(text)
-
-            import pandas as pd
 
             new_row = pd.DataFrame({
                 "Date":[date],
