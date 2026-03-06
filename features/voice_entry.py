@@ -1,89 +1,124 @@
 import streamlit as st
-import speech_recognition as sr
 import pandas as pd
-import tempfile
+from datetime import datetime, timedelta
 import re
-from datetime import datetime
-from streamlit_webrtc import webrtc_streamer, WebRtcMode
-from features.utils import detect_spoken_date
 
+def parse_voice_expense(text):
+
+```
+text = text.lower()
+
+amount = 0
+category = "Other"
+description = text
+date = datetime.today()
+
+# -------- Amount extraction --------
+amt = re.findall(r'\d+', text)
+
+if amt:
+    amount = int(amt[0])
+
+# -------- Category detection --------
+if "food" in text or "burger" in text or "pizza" in text:
+    category = "Food"
+
+elif "rent" in text:
+    category = "Rent"
+
+elif "travel" in text or "bus" in text or "ticket" in text:
+    category = "Transport"
+
+elif "shopping" in text or "dress" in text:
+    category = "Shopping"
+
+elif "movie" in text or "entertainment" in text:
+    category = "Entertainment"
+
+# -------- Date logic --------
+today = datetime.today()
+
+if "day before yesterday" in text:
+    date = today - timedelta(days=2)
+
+elif "yesterday" in text:
+    date = today - timedelta(days=1)
+
+else:
+    date = today
+
+return date, category, amount, description
+```
 
 def voice_entry(expenses):
 
-    st.info("🎤 Voice Entry")
+```
+st.markdown("### 🎤 Voice Entry")
 
-    ctx = webrtc_streamer(
-        key="speech",
-        mode=WebRtcMode.SENDONLY,
-        audio_receiver_size=1024,
-        media_stream_constraints={"audio": True, "video": False},
-    )
+if "voice_active" not in st.session_state:
+    st.session_state.voice_active = False
 
-    if ctx.audio_receiver:
+if "voice_text" not in st.session_state:
+    st.session_state.voice_text = ""
 
-        try:
+# ---------- BUTTON ----------
+if st.button("🎤 Voice Entry"):
 
-            audio_frames = ctx.audio_receiver.get_frames(timeout=1)
+    st.session_state.voice_active = True
 
-            if audio_frames:
 
-                recognizer = sr.Recognizer()
+# ---------- RECORDING UI ----------
+if st.session_state.voice_active:
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+    st.info("🎙 Recording... Speak now (5 seconds)")
 
-                    for frame in audio_frames:
-                        tmp.write(frame.to_ndarray().tobytes())
+    voice_html = """
+    <script>
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
 
-                    audio_path = tmp.name
+    recognition.start();
 
-                with sr.AudioFile(audio_path) as source:
-                    audio = recognizer.record(source)
+    setTimeout(() => {
+        recognition.stop();
+    }, 5000);
 
-                text = recognizer.recognize_google(audio)
+    recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        window.parent.postMessage({type: "voice_text", text: text}, "*");
+    }
+    </script>
+    """
 
-                st.success(f"You said: {text}")
+    st.components.v1.html(voice_html, height=0)
 
-                text_lower = text.lower()
 
-                detected_date = detect_spoken_date(text)
+# ---------- RECEIVE VOICE ----------
+voice_text = st.session_state.get("voice_text","")
 
-                amount_match = re.search(r"\d+", text_lower)
-                amount = int(amount_match.group()) if amount_match else 0
+if voice_text:
 
-                if "food" in text_lower or "lunch" in text_lower:
-                    category = "Food"
-                elif "rent" in text_lower:
-                    category = "Rent"
-                elif "shopping" in text_lower:
-                    category = "Shopping"
-                elif "travel" in text_lower:
-                    category = "Travel"
-                elif "movie" in text_lower:
-                    category = "Entertainment"
-                elif "bus" in text_lower or "uber" in text_lower:
-                    category = "Transport"
-                else:
-                    category = "Food"
+    st.success(f"🗣 Recognized: {voice_text}")
 
-                if amount == 0:
-                    st.error("Amount not detected")
-                    return
+    date, category, amount, description = parse_voice_expense(voice_text)
 
-                new_row = pd.DataFrame({
-                    "Date":[detected_date],
-                    "Category":[category],
-                    "Amount":[amount],
-                    "Description":[text],
-                    "User":[st.session_state.user]
-                })
+    new_row = pd.DataFrame({
+        "Date":[date],
+        "Category":[category],
+        "Amount":[amount],
+        "Description":[description],
+        "User":[st.session_state.user]
+    })
 
-                expenses = pd.concat([expenses,new_row],ignore_index=True)
+    expenses = pd.concat([expenses,new_row],ignore_index=True)
 
-                expenses.to_csv("expenses.csv",index=False)
+    expenses.to_csv("expenses.csv",index=False)
 
-                st.success("Expense added successfully")
+    st.session_state.voice_text = ""
 
-                st.rerun()
+    st.success("✅ Expense added from voice")
 
-        except Exception as e:
-            st.warning("Speak clearly after clicking start")
+    st.rerun()
+```
