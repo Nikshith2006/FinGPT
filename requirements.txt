@@ -1,10 +1,12 @@
 streamlit
 pandas
-matplotlib
 numpy
+matplotlib
 scikit-learn
 python-dotenv
-google-genai
-streamlit-oauth
+speechrecognition
 streamlit-mic-recorder
-SpeechRecognition
+google-genai
+requests
+python-dateutil
+
