@@ -48,7 +48,6 @@ def dashboard():
     users.to_csv("users.csv", index=False)
 
     st.sidebar.divider()
-
     st.sidebar.subheader("➕ Add New Expense")
 
     exp_date = st.sidebar.date_input("📅 Date", datetime.today())
