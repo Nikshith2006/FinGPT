@@ -3,6 +3,7 @@ import pandas as pd
 from features.voice_entry import voice_entry
 from features.ai_assistant import ai_assistant
 from features.charts import show_charts
+from features.voice_entry import voice_entry
 
 def dashboard():
 
@@ -30,5 +31,6 @@ def dashboard():
     ai_assistant(income,budget,total)
 
     voice_entry()
+
 
     show_charts(df)
