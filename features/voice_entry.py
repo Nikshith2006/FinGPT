@@ -4,9 +4,12 @@ from datetime import datetime, timedelta
 import re
 import speech_recognition as sr
 from streamlit_mic_recorder import mic_recorder
+import tempfile
+import wave
 
 
-# -------- PARSE VOICE TEXT --------
+# ---------- PARSE VOICE TEXT ----------
+
 def parse_voice_expense(text):
 
     text = text.lower()
@@ -16,10 +19,13 @@ def parse_voice_expense(text):
     description = text
     date = datetime.today()
 
+    # Amount detection
     amt = re.findall(r'\d+', text)
+
     if amt:
         amount = int(amt[0])
 
+    # Category detection
     if "food" in text or "burger" in text or "pizza" in text:
         category = "Food"
 
@@ -35,6 +41,7 @@ def parse_voice_expense(text):
     elif "movie" in text or "entertainment" in text:
         category = "Entertainment"
 
+    # Date detection
     today = datetime.today()
 
     if "day before yesterday" in text:
@@ -49,26 +56,42 @@ def parse_voice_expense(text):
     return date, category, amount, description
 
 
-# -------- VOICE ENTRY --------
+# ---------- VOICE ENTRY ----------
+
 def voice_entry(expenses):
 
     st.markdown("### 🎤 Smart Voice Entry")
 
     audio = mic_recorder(
         start_prompt="🎤 Voice Entry",
-        stop_prompt="⏹ Stop",
+        stop_prompt="⏹ Stop Recording",
         just_once=True,
         use_container_width=True
     )
 
-    if audio:
+    if audio is not None:
+
+        st.info("🎙 Processing voice...")
+
+        # Convert audio bytes → temporary WAV file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+
+            wf = wave.open(tmp.name, "wb")
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(audio["sample_rate"])
+            wf.writeframes(audio["bytes"])
+            wf.close()
+
+            temp_audio_path = tmp.name
 
         recognizer = sr.Recognizer()
 
-        with sr.AudioFile(audio["filename"]) as source:
-            audio_data = recognizer.record(source)
-
         try:
+
+            with sr.AudioFile(temp_audio_path) as source:
+                audio_data = recognizer.record(source)
+
             text = recognizer.recognize_google(audio_data)
 
             st.success(f"You said: {text}")
@@ -91,5 +114,8 @@ def voice_entry(expenses):
 
             st.rerun()
 
-        except:
-            st.error("Voice not recognized. Try again.")
+        except sr.UnknownValueError:
+            st.error("❌ Could not understand voice")
+
+        except Exception as e:
+            st.error(f"Voice processing error: {e}")
