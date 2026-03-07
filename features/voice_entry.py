@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 import re
 import speech_recognition as sr
 from streamlit_mic_recorder import mic_recorder
-import tempfile
 
 
 def parse_voice_expense(text):
@@ -24,7 +23,7 @@ def parse_voice_expense(text):
         category = "Food"
     elif "rent" in text:
         category = "Rent"
-    elif "bus" in text or "travel" in text or "ticket" in text:
+    elif "bus" in text or "ticket" in text or "travel" in text:
         category = "Transport"
     elif "shopping" in text or "dress" in text:
         category = "Shopping"
@@ -35,6 +34,7 @@ def parse_voice_expense(text):
 
     if "day before yesterday" in text:
         date = today - timedelta(days=2)
+
     elif "yesterday" in text:
         date = today - timedelta(days=1)
 
@@ -43,11 +43,11 @@ def parse_voice_expense(text):
 
 def voice_entry(expenses):
 
-    st.subheader("🎤 Voice Entry")
+    st.markdown("### 🎤 Voice Entry")
 
     audio = mic_recorder(
-        start_prompt="🎤 Start Recording",
-        stop_prompt="⏹ Stop",
+        start_prompt="🎤 Voice Entry",
+        stop_prompt="⏹ Stop Recording",
         just_once=True,
         use_container_width=True
     )
@@ -59,14 +59,13 @@ def voice_entry(expenses):
 
     recognizer = sr.Recognizer()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-        f.write(audio["bytes"])
-        temp_path = f.name
-
-    with sr.AudioFile(temp_path) as source:
-        audio_data = recognizer.record(source)
-
     try:
+        audio_data = sr.AudioData(
+            audio["bytes"],
+            sample_rate=audio["sample_rate"],
+            sample_width=2
+        )
+
         text = recognizer.recognize_google(audio_data)
 
         st.success(f"You said: {text}")
@@ -74,21 +73,23 @@ def voice_entry(expenses):
         date, category, amount, description = parse_voice_expense(text)
 
         new_row = pd.DataFrame({
-            "Date": [date],
-            "Category": [category],
-            "Amount": [amount],
-            "Description": [description],
-            "User": [st.session_state.user]
+            "Date":[date],
+            "Category":[category],
+            "Amount":[amount],
+            "Description":[description],
+            "User":[st.session_state.user]
         })
 
-        expenses = pd.concat([expenses, new_row], ignore_index=True)
-        expenses.to_csv("expenses.csv", index=False)
+        expenses = pd.concat([expenses,new_row],ignore_index=True)
+
+        expenses.to_csv("expenses.csv",index=False)
 
         st.success("Expense added successfully")
+
         st.rerun()
 
     except sr.UnknownValueError:
-        st.error("Could not understand the audio")
+        st.error("Could not understand audio")
 
     except Exception as e:
-        st.error(f"Voice error: {e}")
+        st.error(f"Voice processing error: {e}")
