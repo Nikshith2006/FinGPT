@@ -5,7 +5,7 @@ import re
 import time
 
 
-# ================= PARSE VOICE TEXT =================
+# ---------------- PARSE VOICE ----------------
 
 def parse_voice_expense(text):
 
@@ -19,29 +19,28 @@ def parse_voice_expense(text):
     description = text
     date = datetime.today()
 
-    # -------- Amount extraction --------
+    # amount detection
     amt = re.findall(r'\d+', text)
-
     if amt:
         amount = int(amt[0])
 
-    # -------- Category detection --------
+    # category detection
     if "food" in text or "burger" in text or "pizza" in text:
         category = "Food"
 
     elif "rent" in text:
         category = "Rent"
 
-    elif "travel" in text or "bus" in text or "ticket" in text:
+    elif "bus" in text or "ticket" in text or "travel" in text:
         category = "Transport"
 
-    elif "shopping" in text or "dress" in text:
+    elif "dress" in text or "shopping" in text:
         category = "Shopping"
 
     elif "movie" in text or "entertainment" in text:
         category = "Entertainment"
 
-    # -------- Date detection --------
+    # date detection
     today = datetime.today()
 
     if "day before yesterday" in text:
@@ -56,79 +55,85 @@ def parse_voice_expense(text):
     return date, category, amount, description
 
 
-# ================= VOICE ENTRY =================
+# ---------------- VOICE ENTRY ----------------
 
 def voice_entry(expenses):
 
-    st.markdown("### 🎤 Smart Voice Entry")
+    st.markdown("## 🎤 Smart Voice Entry")
 
-    if "recording" not in st.session_state:
-        st.session_state.recording = False
+    if "voice_recording" not in st.session_state:
+        st.session_state.voice_recording = False
 
-    if "voice_result" not in st.session_state:
-        st.session_state.voice_result = ""
+    if "voice_text" not in st.session_state:
+        st.session_state.voice_text = ""
 
-    # ---------- BUTTON ----------
+    # ---------------- BUTTON ----------------
 
-    if st.button("🎙 Start Recording"):
-        st.session_state.recording = True
-        st.session_state.voice_result = ""
+    if st.button("🎤 Start Recording"):
+        st.session_state.voice_recording = True
+        st.session_state.voice_text = ""
 
-    # ---------- RECORDING UI ----------
+    # ---------------- RECORDING ----------------
 
-    if st.session_state.recording:
+    if st.session_state.voice_recording:
 
-        st.markdown("## 🎤 Recording...")
+        st.markdown(
+            "<h2 style='color:red;'>🎤 Recording...</h2>",
+            unsafe_allow_html=True
+        )
 
-        # Speech recognition JS
         voice_html = """
         <script>
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+
         recognition.lang = "en-IN";
         recognition.interimResults = false;
         recognition.continuous = false;
 
         recognition.start();
 
-        setTimeout(() => {
+        setTimeout(()=>{
             recognition.stop();
-        }, 5000);
+        },5000);
 
         recognition.onresult = function(event){
+
             const text = event.results[0][0].transcript;
 
-            const data = {
+            const streamlitMessage = {
                 isStreamlitMessage: true,
                 type: "streamlit:setComponentValue",
                 value: text
             };
 
-            window.parent.postMessage(data, "*");
-        }
+            window.parent.postMessage(streamlitMessage,"*");
+
+        };
+
         </script>
         """
 
         result = st.components.v1.html(voice_html, height=0)
 
-        if isinstance(result, str):
-            st.session_state.voice_result = result
-
-        # animation delay
         time.sleep(5)
 
         st.success("✅ Recording Finished")
 
-        st.session_state.recording = False
+        st.session_state.voice_recording = False
 
-    # ---------- RESULT ----------
+        if isinstance(result, str):
+            st.session_state.voice_text = result
 
-    voice_text = st.session_state.get("voice_result", "")
+    # ---------------- RESULT ----------------
+
+    voice_text = st.session_state.get("voice_text", "")
 
     if isinstance(voice_text, str) and voice_text != "":
 
         st.success(f"You said: {voice_text}")
 
-        # Parse voice
         date, category, amount, description = parse_voice_expense(voice_text)
 
         new_row = pd.DataFrame({
@@ -143,8 +148,8 @@ def voice_entry(expenses):
 
         expenses.to_csv("expenses.csv",index=False)
 
-        st.success("✅ Expense added successfully")
+        st.success("✅ Expense added to table")
 
-        st.session_state.voice_result = ""
+        st.session_state.voice_text = ""
 
         st.rerun()
