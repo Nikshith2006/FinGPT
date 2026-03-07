@@ -1,50 +1,9 @@
 Date,Category,Amount,Description,User
-2026-02-01 00:00:00,Rent,8001.0,Room Rent,Nikshith
-2026-02-03 00:00:00,Food,450.0,Dinner,Nikshith
-2026-02-05 00:00:00,Shopping,1800.0,Clothes,Nikshith
-2026-02-07 00:00:00,Transport,300.0,Metro Card,Nikshith
-2026-02-09 00:00:00,Food,600.0,Groceries,Nikshith
-2026-02-12 00:00:00,Entertainment,1200.0,Movie,Nikshith
-2026-02-15 00:00:00,Travel,2500.0,Trip,Nikshith
-2026-02-18 00:00:00,Food,550.0,Lunch,Nikshith
-2026-02-20 00:00:00,Shopping,2200.0,Gadgets,Nikshith
-2026-02-23 00:00:00,Food,400.0,Burger,Nikshith
-2026-02-01 00:00:00,Rent,12000.0,Apartment Rent,Ram
-2026-02-02 00:00:00,Food,800.0,Restaurant,Ram
-2026-02-04 00:00:00,Transport,500.0,Petrol,Ram
-2026-02-06 00:00:00,Shopping,3500.0,Shoes,Ram
-2026-02-08 00:00:00,Food,950.0,Groceries,Ram
-2026-02-10 00:00:00,Entertainment,2000.0,Concert,Ram
-2026-02-14 00:00:00,Travel,4000.0,Weekend Trip,Ram
-2026-02-17 00:00:00,Food,700.0,Lunch,Ram
-2026-02-19 00:00:00,Shopping,2500.0,Electronics,Ram
-2026-02-22 00:00:00,Food,600.0,Snacks,Ram
-2026-02-01 00:00:00,Rent,10000.0,Flat Rent,Krishna
-2026-02-03 00:00:00,Food,650.0,Dinner,Krishna
-2026-02-05 00:00:00,Transport,400.0,Bus Pass,Krishna
-2026-02-07 00:00:00,Shopping,1500.0,Clothing,Krishna
-2026-02-09 00:00:00,Food,700.0,Groceries,Krishna
-2026-02-11 00:00:00,Entertainment,1200.0,OTT Subscription,Krishna
-2026-02-13 00:00:00,Travel,3000.0,Short Trip,Krishna
-2026-02-16 00:00:00,Food,550.0,Lunch,Krishna
-2026-02-18 00:00:00,Shopping,1800.0,Accessories,Krishna
-2026-02-21 00:00:00,Food,500.0,Breakfast,Krishna
-,Entertainment,250.0,Movie,Krishna
-,Rent,8000.0,room rent,Keshav
-,Food,150.0,eggs,Sanjay
-,Food,150.0,veg,Shiva
-,Entertainment,250.0,movie,Shiva
-,Rent,10000.0,room rent,Shiva
-,Rent,6200.0,fee,Pradyuth
-,Food,50.0,add Rs 50,Nikshith
-,Food,100.0,add Rs 100 for burger,Nikshith
-,Transport,150.0,add 150 rupees for tickets,Nikshith
-2026-03-03,Food,200.0,at Rs 200 for food yesterday,Nikshith
-8000-03-04,Rent,8000.0,add 8000 for rent,Nikshith
-2026-03-03,Food,6000.0,6000 for hostel fee yesterday,Nikshith
-2026-03-30,Food,30.0,at RS 30 for chips,Nikshith
-2026-03-04,Food,170.0,Burgur,Nikshith Doppa
-2026-03-01,Rent,6000.0,hostel fee,Nikshith Doppa
-2026-03-02,Shopping,2000.0,Dress,Nikshith Doppa
-2026-03-02,Travel,500.0,bus tickets,Nikshith Doppa
-2050-03-04,Food,50.0,add Rs 50 for chips,Nikshith
+2026-03-01,Food,120,Breakfast,Nikshith
+2026-03-02,Transport,150,Bus ticket,Nikshith
+2026-03-03,Food,200,Burger,Nikshith
+2026-03-04,Shopping,1500,Dress,Nikshith
+2026-03-05,Entertainment,300,Movie,Nikshith
+2026-03-06,Food,180,Pizza,Nikshith
+2026-03-07,Transport,120,Metro ticket,Nikshith
+2026-03-07,Rent,6000,Hostel fee,Nikshith
