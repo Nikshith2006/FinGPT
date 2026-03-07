@@ -2,15 +2,12 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import re
-import time
+import speech_recognition as sr
+from streamlit_mic_recorder import mic_recorder
 
 
-# ---------------- PARSE VOICE ----------------
-
+# -------- PARSE VOICE TEXT --------
 def parse_voice_expense(text):
-
-    if not isinstance(text, str):
-        return datetime.today(), "Other", 0, ""
 
     text = text.lower()
 
@@ -19,12 +16,10 @@ def parse_voice_expense(text):
     description = text
     date = datetime.today()
 
-    # amount detection
     amt = re.findall(r'\d+', text)
     if amt:
         amount = int(amt[0])
 
-    # category detection
     if "food" in text or "burger" in text or "pizza" in text:
         category = "Food"
 
@@ -34,13 +29,12 @@ def parse_voice_expense(text):
     elif "bus" in text or "ticket" in text or "travel" in text:
         category = "Transport"
 
-    elif "dress" in text or "shopping" in text:
+    elif "shopping" in text or "dress" in text:
         category = "Shopping"
 
     elif "movie" in text or "entertainment" in text:
         category = "Entertainment"
 
-    # date detection
     today = datetime.today()
 
     if "day before yesterday" in text:
@@ -55,101 +49,47 @@ def parse_voice_expense(text):
     return date, category, amount, description
 
 
-# ---------------- VOICE ENTRY ----------------
-
+# -------- VOICE ENTRY --------
 def voice_entry(expenses):
 
-    st.markdown("## 🎤 Smart Voice Entry")
+    st.markdown("### 🎤 Smart Voice Entry")
 
-    if "voice_recording" not in st.session_state:
-        st.session_state.voice_recording = False
+    audio = mic_recorder(
+        start_prompt="🎤 Voice Entry",
+        stop_prompt="⏹ Stop",
+        just_once=True,
+        use_container_width=True
+    )
 
-    if "voice_text" not in st.session_state:
-        st.session_state.voice_text = ""
+    if audio:
 
-    # ---------------- BUTTON ----------------
+        recognizer = sr.Recognizer()
 
-    if st.button("🎤 Start Recording"):
-        st.session_state.voice_recording = True
-        st.session_state.voice_text = ""
+        with sr.AudioFile(audio["filename"]) as source:
+            audio_data = recognizer.record(source)
 
-    # ---------------- RECORDING ----------------
+        try:
+            text = recognizer.recognize_google(audio_data)
 
-    if st.session_state.voice_recording:
+            st.success(f"You said: {text}")
 
-        st.markdown(
-            "<h2 style='color:red;'>🎤 Recording...</h2>",
-            unsafe_allow_html=True
-        )
+            date, category, amount, description = parse_voice_expense(text)
 
-        voice_html = """
-        <script>
+            new_row = pd.DataFrame({
+                "Date":[date],
+                "Category":[category],
+                "Amount":[amount],
+                "Description":[description],
+                "User":[st.session_state.user]
+            })
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
+            expenses = pd.concat([expenses,new_row],ignore_index=True)
 
-        recognition.lang = "en-IN";
-        recognition.interimResults = false;
-        recognition.continuous = false;
+            expenses.to_csv("expenses.csv",index=False)
 
-        recognition.start();
+            st.success("✅ Expense added successfully")
 
-        setTimeout(()=>{
-            recognition.stop();
-        },5000);
+            st.rerun()
 
-        recognition.onresult = function(event){
-
-            const text = event.results[0][0].transcript;
-
-            const streamlitMessage = {
-                isStreamlitMessage: true,
-                type: "streamlit:setComponentValue",
-                value: text
-            };
-
-            window.parent.postMessage(streamlitMessage,"*");
-
-        };
-
-        </script>
-        """
-
-        result = st.components.v1.html(voice_html, height=0)
-
-        time.sleep(5)
-
-        st.success("✅ Recording Finished")
-
-        st.session_state.voice_recording = False
-
-        if isinstance(result, str):
-            st.session_state.voice_text = result
-
-    # ---------------- RESULT ----------------
-
-    voice_text = st.session_state.get("voice_text", "")
-
-    if isinstance(voice_text, str) and voice_text != "":
-
-        st.success(f"You said: {voice_text}")
-
-        date, category, amount, description = parse_voice_expense(voice_text)
-
-        new_row = pd.DataFrame({
-            "Date":[date],
-            "Category":[category],
-            "Amount":[amount],
-            "Description":[description],
-            "User":[st.session_state.user]
-        })
-
-        expenses = pd.concat([expenses,new_row],ignore_index=True)
-
-        expenses.to_csv("expenses.csv",index=False)
-
-        st.success("✅ Expense added to table")
-
-        st.session_state.voice_text = ""
-
-        st.rerun()
+        except:
+            st.error("Voice not recognized. Try again.")
