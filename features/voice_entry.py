@@ -5,10 +5,7 @@ import re
 import speech_recognition as sr
 from streamlit_mic_recorder import mic_recorder
 import tempfile
-import wave
 
-
-# ---------- PARSE VOICE TEXT ----------
 
 def parse_voice_expense(text):
 
@@ -19,103 +16,79 @@ def parse_voice_expense(text):
     description = text
     date = datetime.today()
 
-    # Amount detection
-    amt = re.findall(r'\d+', text)
+    nums = re.findall(r"\d+", text)
+    if nums:
+        amount = int(nums[0])
 
-    if amt:
-        amount = int(amt[0])
-
-    # Category detection
-    if "food" in text or "burger" in text or "pizza" in text:
+    if "food" in text or "pizza" in text or "burger" in text:
         category = "Food"
-
     elif "rent" in text:
         category = "Rent"
-
-    elif "bus" in text or "ticket" in text or "travel" in text:
+    elif "bus" in text or "travel" in text or "ticket" in text:
         category = "Transport"
-
     elif "shopping" in text or "dress" in text:
         category = "Shopping"
-
     elif "movie" in text or "entertainment" in text:
         category = "Entertainment"
 
-    # Date detection
     today = datetime.today()
 
     if "day before yesterday" in text:
         date = today - timedelta(days=2)
-
     elif "yesterday" in text:
         date = today - timedelta(days=1)
-
-    else:
-        date = today
 
     return date, category, amount, description
 
 
-# ---------- VOICE ENTRY ----------
-
 def voice_entry(expenses):
 
-    st.markdown("### 🎤 Smart Voice Entry")
+    st.subheader("🎤 Voice Entry")
 
     audio = mic_recorder(
-        start_prompt="🎤 Voice Entry",
-        stop_prompt="⏹ Stop Recording",
+        start_prompt="🎤 Start Recording",
+        stop_prompt="⏹ Stop",
         just_once=True,
         use_container_width=True
     )
 
-    if audio is not None:
+    if audio is None:
+        return
 
-        st.info("🎙 Processing voice...")
+    st.info("Processing voice...")
 
-        # Convert audio bytes → temporary WAV file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+    recognizer = sr.Recognizer()
 
-            wf = wave.open(tmp.name, "wb")
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(audio["sample_rate"])
-            wf.writeframes(audio["bytes"])
-            wf.close()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+        f.write(audio["bytes"])
+        temp_path = f.name
 
-            temp_audio_path = tmp.name
+    with sr.AudioFile(temp_path) as source:
+        audio_data = recognizer.record(source)
 
-        recognizer = sr.Recognizer()
+    try:
+        text = recognizer.recognize_google(audio_data)
 
-        try:
+        st.success(f"You said: {text}")
 
-            with sr.AudioFile(temp_audio_path) as source:
-                audio_data = recognizer.record(source)
+        date, category, amount, description = parse_voice_expense(text)
 
-            text = recognizer.recognize_google(audio_data)
+        new_row = pd.DataFrame({
+            "Date": [date],
+            "Category": [category],
+            "Amount": [amount],
+            "Description": [description],
+            "User": [st.session_state.user]
+        })
 
-            st.success(f"You said: {text}")
+        expenses = pd.concat([expenses, new_row], ignore_index=True)
+        expenses.to_csv("expenses.csv", index=False)
 
-            date, category, amount, description = parse_voice_expense(text)
+        st.success("Expense added successfully")
+        st.rerun()
 
-            new_row = pd.DataFrame({
-                "Date":[date],
-                "Category":[category],
-                "Amount":[amount],
-                "Description":[description],
-                "User":[st.session_state.user]
-            })
+    except sr.UnknownValueError:
+        st.error("Could not understand the audio")
 
-            expenses = pd.concat([expenses,new_row],ignore_index=True)
-
-            expenses.to_csv("expenses.csv",index=False)
-
-            st.success("✅ Expense added successfully")
-
-            st.rerun()
-
-        except sr.UnknownValueError:
-            st.error("❌ Could not understand voice")
-
-        except Exception as e:
-            st.error(f"Voice processing error: {e}")
+    except Exception as e:
+        st.error(f"Voice error: {e}")
