@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import tempfile
+#import tempfile
 import re
-import sounddevice as sd
-from scipy.io.wavfile import write
-import speech_recognition as sr
+#import sounddevice as sd
+#from scipy.io.wavfile import write
+#import speech_recognition as sr
 from sklearn.linear_model import LinearRegression
 from utils import detect_spoken_date
 from datetime import datetime, timedelta
@@ -581,4 +581,5 @@ def smart_suggestions(total, budget):
 
         st.write("• 💰 You are saving well.")
         st.write("• 📈 Consider investing some savings.")
+
         st.write("• 🧠 Maintain this spending discipline.")
