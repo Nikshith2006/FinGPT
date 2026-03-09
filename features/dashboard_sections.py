@@ -265,11 +265,9 @@ def expense_table(expenses, user_expenses):
 
     df = user_expenses.copy()
 
-    # Convert column names to string
-    df.columns = df.columns.astype(str)
-
-    # Remove User column safely
-    df = df.loc[:, ~df.columns.str.strip().str.lower().eq("user")]
+    # Remove User column if present
+    if "User" in df.columns:
+        df = df.drop(columns=["User"])
 
     # Sort by date
     df = df.sort_values(by="Date", ascending=True)
@@ -439,6 +437,7 @@ def smart_suggestions(total, budget):
         st.write("• 💰 You are saving well.")
         st.write("• 📈 Consider investing some savings.")
         st.write("• 🧠 Maintain this spending discipline.")
+
 
 
 
