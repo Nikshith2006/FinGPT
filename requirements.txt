@@ -4,19 +4,16 @@ numpy
 matplotlib
 scikit-learn
 python-dotenv
-speechrecognition
-streamlit-mic-recorder
 google-genai
 requests
 python-dateutil
 google-generativeai
-sounddevice
 scipy
 streamlit-oauth
 streamlit-webrtc
 av
 pydub
-SpeechRecognition
+
 
 
 
