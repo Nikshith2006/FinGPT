@@ -90,7 +90,7 @@ def login():
             icon="https://www.google.com/favicon.ico",
 
             # Local run
-            redirect_uri="http://localhost:8501",
+            redirect_uri="https://fingpt20.streamlit.app",
 
             scope="openid email profile",
             key="google",
@@ -131,4 +131,5 @@ def login():
                 users.to_csv("data/users.csv",index=False)
 
             st.session_state.user = name
+
             st.rerun()
