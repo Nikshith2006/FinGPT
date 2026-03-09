@@ -95,8 +95,8 @@ def dashboard():
 
     # UPDATE USER DATA IN GOOGLE SHEETS
     user_row = users[users["Name"] == st.session_state.user].index[0] + 2
-    users_sheet.update(f"C{user_row}", income)
-    users_sheet.update(f"D{user_row}", budget)
+    users_sheet.update(f"C{user_row}", [[income]])
+    users_sheet.update(f"D{user_row}", [[budget]])
 
     st.sidebar.divider()
 
