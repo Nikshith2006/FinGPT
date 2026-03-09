@@ -8,3 +8,5 @@ google-generativeai
 requests
 python-dateutil
 streamlit-oauth
+gspread
+google-auth
