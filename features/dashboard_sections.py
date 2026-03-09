@@ -69,14 +69,10 @@ def voice_entry(expenses):
 
             text_lower = text.lower()
 
-
-            # ================= VOICE COMMANDS =================
-
             full_expenses = pd.read_csv("data/expenses.csv")
             full_expenses["Date"] = pd.to_datetime(full_expenses["Date"], errors="coerce")
 
             today = pd.Timestamp.today()
-
 
             # ---------------- SPENDING THIS MONTH ----------------
 
@@ -94,8 +90,6 @@ def voice_entry(expenses):
 
                 return expenses
 
-
-            # ---------------- CATEGORY COMMANDS ----------------
 
             categories = [
                 "food","shopping","travel",
@@ -118,8 +112,6 @@ def voice_entry(expenses):
                     return expenses
 
 
-            # ---------------- SHOW SAVINGS ----------------
-
             if "show my savings" in text_lower:
 
                 users = pd.read_csv("data/users.csv")
@@ -141,8 +133,6 @@ def voice_entry(expenses):
 
                 return expenses
 
-
-            # ---------------- FINANCIAL HEALTH ----------------
 
             if "show my financial health" in text_lower or "what is my health score" in text_lower:
 
@@ -178,8 +168,6 @@ def voice_entry(expenses):
                 return expenses
 
 
-            # ================= EXPENSE ENTRY =================
-
             amount_match = re.search(r"\d+", text_lower)
             amount = int(amount_match.group()) if amount_match else 0
 
@@ -187,11 +175,6 @@ def voice_entry(expenses):
                 st.error("⚠ Could not detect amount.")
                 return expenses
 
-
-            # ================= DATE (UPGRADED) =================
-
-            from datetime import datetime, timedelta
-            import calendar
 
             today_dt = datetime.today()
 
@@ -216,61 +199,11 @@ def voice_entry(expenses):
             elif "day before yesterday" in text_lower:
                 detected_date = today_dt - timedelta(days=2)
 
-            elif "last" in text_lower:
-                for day in days:
-                    if day in text_lower:
-                        diff = today_dt.weekday() - days[day]
-                        if diff <= 0:
-                            diff += 7
-                        detected_date = today_dt - timedelta(days=diff)
-                        break
-
-            elif "this" in text_lower:
-                for day in days:
-                    if day in text_lower:
-                        diff = days[day] - today_dt.weekday()
-                        detected_date = today_dt + timedelta(days=diff)
-                        break
-
-            elif "on" in text_lower:
-                for day in days:
-                    if day in text_lower:
-                        diff = days[day] - today_dt.weekday()
-                        if diff < 0:
-                            diff += 7
-                        detected_date = today_dt + timedelta(days=diff)
-                        break
-
-            elif "first" in text_lower or "second" in text_lower:
-
-                month = today_dt.month
-                year = today_dt.year
-
-                if "last month" in text_lower:
-                    month -= 1
-                    if month == 0:
-                        month = 12
-                        year -= 1
-
-                cal = calendar.monthcalendar(year, month)
-
-                week_index = 0 if "first" in text_lower else 1
-
-                for day in days:
-                    if day in text_lower:
-                        weekday = days[day]
-                        day_num = cal[week_index][weekday] or cal[week_index+1][weekday]
-                        detected_date = datetime(year, month, day_num)
-                        break
-
-
             if detected_date is None:
                 detected_date = detect_spoken_date(text_lower)
 
             detected_date = pd.to_datetime(detected_date)
 
-
-            # ---------------- CATEGORY ----------------
 
             if "rent" in text_lower or "hostel" in text_lower:
                 category = "Rent"
@@ -294,59 +227,8 @@ def voice_entry(expenses):
                 category = "Other"
 
 
-            # ---------------- CLEAN DESCRIPTION ----------------
-
             clean_description = text_lower
-
-            remove_patterns = [
-
-                r"\badd\b",
-                r"\bfor\b",
-                r"\bon\b",
-                r"\bmy\b",
-                r"\bspent\b",
-                r"\bspend\b",
-
-                r"\b\d+\b",
-                r"\brs\b",
-                r"\brupees\b",
-
-                r"\btoday\b",
-                r"\byesterday\b",
-                r"\bday\b",
-                r"\bbefore\b",
-
-                r"\blast\b",
-                r"\bLAST\b",
-                r"\bat\b",
-                r"\bthis\b",
-                r"\bweek\b",
-
-                r"\bmonth\b",
-                r"\bof\b",
-
-                r"\bfirst\b",
-                r"\bsecond\b",
-                r"\bthird\b",
-                r"\bfourth\b",
-
-                r"\bmonday\b",
-                r"\btuesday\b",
-                r"\bwednesday\b",
-                r"\bthursday\b",
-                r"\bfriday\b",
-                r"\bsaturday\b",
-                r"\bsunday\b",
-
-            ]
-
-            for pattern in remove_patterns:
-                clean_description = re.sub(pattern, "", clean_description)
-
             clean_description = " ".join(clean_description.split()).title()
-
-
-            # ---------------- SAVE ----------------
 
             new_row = pd.DataFrame({
                 "Date":[detected_date],
@@ -370,38 +252,33 @@ def voice_entry(expenses):
             st.write(e)
 
     return expenses
+
+
 # ---------------- EXPENSE TABLE ----------------
 
 def expense_table(expenses, user_expenses):
 
     st.subheader("📊 Expense Manager")
 
-    # FIX 2: Ensure datetime before using
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     df = user_expenses.copy()
 
-    # SORT BY DATE
     df = df.sort_values(by="Date", ascending=True)
 
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
-    # ---------------- TABLE HEADER ----------------
-
-    header = st.columns([1,2,2,1,3,1])
+    header = st.columns([1,2,2,1,3])
 
     header[0].markdown("**S.No**")
     header[1].markdown("**Date**")
     header[2].markdown("**Category**")
     header[3].markdown("**Amount**")
     header[4].markdown("**Description**")
-    header[5].markdown("")
-
-    # ---------------- TABLE ROWS ----------------
 
     for i,row in df.reset_index().iterrows():
 
-        cols = st.columns([1,2,2,1,3,1])
+        cols = st.columns([1,2,2,1,3])
 
         cols[0].write(i+1)
         cols[1].write(row["Date"])
@@ -409,29 +286,13 @@ def expense_table(expenses, user_expenses):
         cols[3].write(f"₹{row['Amount']}")
         cols[4].write(row["Description"])
 
-        if cols[5].button("🗑️", key=f"del{i}"):
-
-            full_expenses = pd.read_csv("data/expenses.csv")
-
-            # FIX 3: Ensure datetime again
-            full_expenses["Date"] = pd.to_datetime(full_expenses["Date"], errors="coerce")
-
-            full_expenses = full_expenses.drop(row["index"])
-
-            full_expenses.to_csv("data/expenses.csv", index=False)
-
-            st.rerun()
-
 
 # ---------------- CHARTS ----------------
 
 def charts_and_predictions(expenses, user_expenses):
 
-    # FIX 4: Ensure datetime before graphs
     expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
-
-    # ---------------- CATEGORY DISTRIBUTION ----------------
 
     st.subheader("📊 Category Distribution")
 
@@ -447,8 +308,6 @@ def charts_and_predictions(expenses, user_expenses):
 
     else:
         st.info("No expenses for this month.")
-
-    # ---------------- DAILY SPENDING ----------------
 
     st.subheader("📈 Daily Spending")
 
@@ -466,8 +325,6 @@ def charts_and_predictions(expenses, user_expenses):
 
     else:
         st.info("No daily spending data.")
-
-    # ---------------- MONTHLY TREND ----------------
 
     st.subheader("📉 Monthly Trend")
 
@@ -502,8 +359,6 @@ def charts_and_predictions(expenses, user_expenses):
 
     else:
         st.info("No monthly data for this year.")
-
-    # ---------------- MONTH END PREDICTION ----------------
 
     st.subheader("🔮 Month-End Prediction")
 
@@ -581,5 +436,4 @@ def smart_suggestions(total, budget):
 
         st.write("• 💰 You are saving well.")
         st.write("• 📈 Consider investing some savings.")
-
         st.write("• 🧠 Maintain this spending discipline.")
