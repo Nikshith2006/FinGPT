@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from google import genai
+import google.generativeai as genai
 from streamlit_oauth import OAuth2Component
 
 load_dotenv()
@@ -21,4 +21,5 @@ GOOGLE_CLIENT_SECRET,
 AUTHORIZE_URL,
 TOKEN_URL,
 TOKEN_URL
+
 )
