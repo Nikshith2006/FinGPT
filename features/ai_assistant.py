@@ -1,5 +1,11 @@
 import streamlit as st
-from config import client
+import google.generativeai as genai
+from config import GOOGLE_API_KEY
+
+
+genai.configure(api_key=GOOGLE_API_KEY)
+
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 
 def ai_financial_assistant(income, budget, total):
@@ -22,11 +28,8 @@ Give helpful financial advice based on this data.
 """
 
         try:
-            # FIXED GEMINI CALL
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=context + question
-            )
+
+            response = model.generate_content(context + question)
 
             st.write(response.text)
 
