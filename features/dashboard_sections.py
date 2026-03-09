@@ -258,33 +258,32 @@ def voice_entry(expenses):
 
 def expense_table(expenses, user_expenses):
 
-    st.subheader("📊 Expense Manager")
+    st.subheader("📊 Expense Table")
 
+    # Ensure datetime
     user_expenses["Date"] = pd.to_datetime(user_expenses["Date"], errors="coerce")
 
     df = user_expenses.copy()
 
+    # Sort by date
     df = df.sort_values(by="Date", ascending=True)
 
+    # Format date
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
-    header = st.columns([1,2,2,1,3])
+    # Reset index to create S.No column
+    df = df.reset_index(drop=True)
 
-    header[0].markdown("**S.No**")
-    header[1].markdown("**Date**")
-    header[2].markdown("**Category**")
-    header[3].markdown("**Amount**")
-    header[4].markdown("**Description**")
+    df.index = df.index + 1
 
-    for i,row in df.reset_index().iterrows():
+    df.index.name = "S.No"
 
-        cols = st.columns([1,2,2,1,3])
-
-        cols[0].write(i+1)
-        cols[1].write(row["Date"])
-        cols[2].write(row["Category"])
-        cols[3].write(f"₹{row['Amount']}")
-        cols[4].write(row["Description"])
+    # Display clean table
+    st.dataframe(
+        df,
+        use_container_width=True,
+        height=400
+    )
 
 
 # ---------------- CHARTS ----------------
@@ -437,3 +436,4 @@ def smart_suggestions(total, budget):
         st.write("• 💰 You are saving well.")
         st.write("• 📈 Consider investing some savings.")
         st.write("• 🧠 Maintain this spending discipline.")
+
