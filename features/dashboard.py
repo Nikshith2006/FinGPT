@@ -3,16 +3,20 @@ import pandas as pd
 from datetime import datetime
 from features.ai_assistant import ai_financial_assistant
 from features.dashboard_sections import (
-    #voice_entry,
     expense_table,
     charts_and_predictions,
     smart_suggestions
 )
 
+# NEW IMPORT FOR GOOGLE SHEETS
+from database import expenses_sheet, users_sheet
+
+
 def dashboard():
 
-    users = pd.read_csv("data/users.csv")
-    expenses = pd.read_csv("data/expenses.csv")
+    # READ DATA FROM GOOGLE SHEETS
+    users = pd.DataFrame(users_sheet.get_all_records())
+    expenses = pd.DataFrame(expenses_sheet.get_all_records())
 
     # Ensure Date column is datetime
     expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
@@ -89,12 +93,10 @@ def dashboard():
         value=int(user_data["MonthlyBudget"])
     )
 
-    users.loc[
-        users["Name"] == st.session_state.user,
-        ["MonthlyIncome","MonthlyBudget"]
-    ] = [income,budget]
-
-    users.to_csv("data/users.csv", index=False)
+    # UPDATE USER DATA IN GOOGLE SHEETS
+    user_row = users[users["Name"] == st.session_state.user].index[0] + 2
+    users_sheet.update(f"C{user_row}", income)
+    users_sheet.update(f"D{user_row}", budget)
 
     st.sidebar.divider()
 
@@ -115,26 +117,16 @@ def dashboard():
 
     if st.sidebar.button("Add Expense"):
 
-        # Reload full file
-        full_expenses = pd.read_csv("data/expenses.csv")
-
-        # Ensure datetime
-        full_expenses["Date"] = pd.to_datetime(full_expenses["Date"], errors="coerce")
-
-        # Force date format
         exp_date = pd.to_datetime(exp_date)
 
-        new_row = pd.DataFrame({
-            "Date":[exp_date],
-            "Category":[exp_cat],
-            "Amount":[exp_amt],
-            "Description":[exp_desc],
-            "User":[st.session_state.user]
-        })
-
-        full_expenses = pd.concat([full_expenses,new_row],ignore_index=True)
-
-        full_expenses.to_csv("data/expenses.csv",index=False)
+        # ADD NEW ROW TO GOOGLE SHEETS
+        expenses_sheet.append_row([
+            exp_date.strftime("%Y-%m-%d"),
+            exp_cat,
+            exp_amt,
+            exp_desc,
+            st.session_state.user
+        ])
 
         st.success("Expense Added Successfully!")
 
@@ -171,10 +163,6 @@ def dashboard():
     m2.metric("💸 Spent", f"₹{total}")
     m3.metric("🏦 Savings", f"₹{savings}")
     m4.metric("💚 Health Score", f"{health_score:.0f}% ({health_label})")
-
-    # ---------------- VOICE ENTRY ----------------
-
-    #expenses = voice_entry(expenses)
 
     # ---------------- AI FINANCIAL ASSISTANT ----------------
 
