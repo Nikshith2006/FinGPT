@@ -1,6 +1,7 @@
 import streamlit as st
 from config import client
 
+
 def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
@@ -21,13 +22,15 @@ Give helpful financial advice based on this data.
 """
 
         try:
-            reply = client.models.generate_content(
+            # FIXED GEMINI CALL
+            response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=context + question
             )
 
-            st.write(reply.text)
+            st.write(response.text)
 
         except Exception as e:
+
             st.error("AI Assistant failed")
             st.write(e)
