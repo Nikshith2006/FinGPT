@@ -21,7 +21,25 @@ def dashboard():
     # Ensure Date column is datetime
     expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
 
-    user_data = users[users["Name"] == st.session_state.user].iloc[0]
+    # -------- FIX: HANDLE NEW USER LOGIN --------
+
+    user_row_data = users[users["Name"] == st.session_state.user]
+
+    if user_row_data.empty:
+        # Add new user automatically
+        users_sheet.append_row([
+            st.session_state.user,
+            "",
+            0,
+            0
+        ])
+
+        # Reload users after inserting
+        users = pd.DataFrame(users_sheet.get_all_records())
+
+        user_row_data = users[users["Name"] == st.session_state.user]
+
+    user_data = user_row_data.iloc[0]
 
     # ---------------- HEADER ----------------
 
