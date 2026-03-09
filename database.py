@@ -18,7 +18,7 @@ creds = Credentials.from_service_account_info(
 client = gspread.authorize(creds)
 
 # Open your Google Sheet
-spreadsheet = client.open("FinGPT Database")
+spreadsheet = client.open_by_key("1fqKcxY1PHypSJ1AVOMKfCG_mhcbH01D9y4JcNL4yH7k")
 
 # Access worksheets
 expenses_sheet = spreadsheet.worksheet("expenses")
