@@ -78,7 +78,7 @@ def login():
         st.markdown(
         """
         <div style="text-align:center;margin:25px 0;color:gray;">
-        ───────────── OR ─────────────
+        ─────── OR ───────
         </div>
         """,
         unsafe_allow_html=True
@@ -133,3 +133,4 @@ def login():
             st.session_state.user = name
 
             st.rerun()
+
