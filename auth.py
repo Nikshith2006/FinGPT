@@ -29,7 +29,7 @@ def login():
     """
     <h1 style='text-align:center;'>🔐 Finlet</h1>
     <p style='text-align:center;color:gray;font-size:18px;'>
-    Smart Personal Finance Assistant
+    Smart Budget Monitoring System
     </p>
     """,
     unsafe_allow_html=True
