@@ -27,7 +27,7 @@ def login():
 
     st.markdown(
     """
-    <h1 style='text-align:center;'>🔐 FinGPT</h1>
+    <h1 style='text-align:center;'>🔐 Finlet</h1>
     <p style='text-align:center;color:gray;font-size:18px;'>
     Smart Personal Finance Assistant
     </p>
