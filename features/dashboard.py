@@ -46,7 +46,7 @@ def dashboard():
     col1, col2 = st.columns([9,1])
 
     with col1:
-        st.title(f"💼 FinGPT Dashboard | Welcome {st.session_state.user}")
+        st.title(f"💼 Finlet Dashboard | Welcome {st.session_state.user}")
 
     with col2:
         if st.button("🚪 Logout"):
