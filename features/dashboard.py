@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date   # ✅ added date
 from features.ai_assistant import ai_financial_assistant
 from features.dashboard_sections import (
     expense_table,
@@ -22,7 +22,7 @@ def dashboard():
     # ================= FIX DATE ISSUE =================
     expenses["Date"] = pd.to_datetime(
         expenses["Date"],
-        format="mixed",   # ✅ handles both old & new formats
+        format="mixed",
         errors="coerce"
     )
 
@@ -31,7 +31,6 @@ def dashboard():
     user_row_data = users[users["Name"] == st.session_state.user]
 
     if user_row_data.empty:
-        # Add new user automatically
         users_sheet.append_row([
             st.session_state.user,
             "",
@@ -39,9 +38,7 @@ def dashboard():
             0
         ])
 
-        # Reload users after inserting
         users = pd.DataFrame(users_sheet.get_all_records())
-
         user_row_data = users[users["Name"] == st.session_state.user]
 
     user_data = user_row_data.iloc[0]
@@ -77,17 +74,14 @@ def dashboard():
     colm1, colm2 = st.columns(2)
 
     with colm1:
-
         selected_month_name = st.selectbox(
             "📆 Month",
             month_names,
             index=current_month - 1
         )
-
         selected_month = month_names.index(selected_month_name) + 1
 
     with colm2:
-
         selected_year = st.selectbox(
             "📅 Year",
             years,
@@ -116,36 +110,42 @@ def dashboard():
         value=int(user_data["MonthlyBudget"])
     )
 
-    # UPDATE USER DATA IN GOOGLE SHEETS
     user_row = users[users["Name"] == st.session_state.user].index[0] + 2
     users_sheet.update(f"C{user_row}", [[income]])
     users_sheet.update(f"D{user_row}", [[budget]])
 
     st.sidebar.divider()
 
-    # ---------------- MANUAL EXPENSE ENTRY ----------------
+    # ---------------- ADD EXPENSE (🔥 FIXED) ----------------
 
     st.sidebar.subheader("➕ Add Expense")
 
-    exp_date = st.sidebar.date_input("📅 Date", datetime.today())
+    # ✅ FORM → enables Enter key
+    with st.sidebar.form("expense_form", clear_on_submit=True):
 
-    exp_cat = st.sidebar.selectbox(
-        "🏷 Category",
-        ["Food","Rent","Shopping","Travel","Entertainment","Transport","Other"]
-    )
+        exp_date = st.date_input(
+            "📅 Date",
+            value=date.today()   # ✅ always today
+        )
 
-    exp_amt = st.sidebar.number_input("💵 Amount", min_value=1)
+        exp_cat = st.selectbox(
+            "🏷 Category",
+            ["Food","Rent","Shopping","Travel","Entertainment","Transport","Other"]
+        )
 
-    exp_desc = st.sidebar.text_input("📝 Description")
+        exp_amt = st.number_input("💵 Amount", min_value=1)
 
-    if st.sidebar.button("Add Expense"):
+        exp_desc = st.text_input("📝 Description")
 
-        # ================= FIX DATE FORMAT =================
+        submitted = st.form_submit_button("Add Expense")
+
+    # ✅ HANDLE BOTH ENTER + BUTTON
+    if submitted:
+
         exp_datetime = datetime.combine(exp_date, datetime.now().time())
 
-        # ADD NEW ROW TO GOOGLE SHEETS
         expenses_sheet.append_row([
-            exp_datetime.strftime("%Y-%m-%d %H:%M:%S.%f"),  # ✅ FIXED FORMAT
+            exp_datetime.strftime("%Y-%m-%d %H:%M:%S.%f"),
             exp_cat,
             exp_amt,
             exp_desc,
@@ -153,31 +153,23 @@ def dashboard():
         ])
 
         st.success("Expense Added Successfully!")
-
         st.rerun()
 
     # ---------------- METRICS ----------------
 
     total = user_expenses["Amount"].sum()
-
     savings = income - total
 
     health_score = max(0, 100 - (total / budget * 100)) if budget > 0 else 0
 
-    # -------- HEALTH SCORE LABEL --------
-
     if health_score >= 90:
         health_label = "Excellent"
-
     elif health_score >= 75:
         health_label = "Good"
-
     elif health_score >= 60:
         health_label = "Moderate"
-
     elif health_score >= 40:
         health_label = "Poor"
-
     else:
         health_label = "Bad"
 
@@ -188,11 +180,11 @@ def dashboard():
     m3.metric("🏦 Savings", f"₹{savings}")
     m4.metric("💚 Health Score", f"{health_score:.0f}% ({health_label})")
 
-    # ---------------- AI FINANCIAL ASSISTANT ----------------
+    # ---------------- AI ----------------
 
     ai_financial_assistant(income, budget, total)
 
-    # ---------------- EXPENSE TABLE ----------------
+    # ---------------- TABLE ----------------
 
     expense_table(expenses, user_expenses)
 
@@ -200,6 +192,6 @@ def dashboard():
 
     charts_and_predictions(expenses, user_expenses)
 
-    # ---------------- SMART SUGGESTIONS ----------------
+    # ---------------- SUGGESTIONS ----------------
 
     smart_suggestions(total, budget)
