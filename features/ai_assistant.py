@@ -61,7 +61,7 @@ def fallback_advice(income, budget, total, question):
     st.success(f"💰 Savings: ₹{savings}")
 
 
-# ---------------- AI CALL FUNCTION ----------------
+# ---------------- AI FUNCTION ----------------
 
 def get_ai_response(context, question):
 
@@ -76,7 +76,7 @@ def get_ai_response(context, question):
     return None
 
 
-# ---------------- MAIN FUNCTION ----------------
+# ---------------- MAIN ----------------
 
 def ai_financial_assistant(income, budget, total):
 
@@ -86,7 +86,8 @@ def ai_financial_assistant(income, budget, total):
     if "ai_input" not in st.session_state:
         st.session_state.ai_input = ""
 
-    col1, col2, col3 = st.columns([5,1,1])
+    # 🔥 CLEAN LAYOUT (LIKE BEFORE)
+    col1, col2, col3 = st.columns([6,1,1])
 
     with col1:
         question = st.text_input(
@@ -99,7 +100,7 @@ def ai_financial_assistant(income, budget, total):
 
     with col3:
         if st.button("❌ Clear"):
-            st.session_state.clear()
+            st.session_state.ai_input = ""
             st.rerun()
 
     # ENTER KEY SUPPORT
@@ -120,26 +121,28 @@ Budget: {budget}
 Spending: {total}
 """
 
+        result = None
+
+        # 🔥 SPINNER ONLY FOR LOADING
         with st.spinner("Analyzing your finances... 🤔"):
 
             try:
-                # 🔥 TIMEOUT = 10 seconds
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(get_ai_response, context, question)
 
                     try:
-                        result = future.result(timeout=10)  # ⏱️ 10 sec limit
-
-                        if result:
-                            st.subheader("🤖 AI Insight")
-                            st.write(result)
-                        else:
-                            fallback_advice(income, budget, total, question)
+                        result = future.result(timeout=10)
 
                     except concurrent.futures.TimeoutError:
-                        # 🔥 TIMEOUT → FALLBACK
-                        fallback_advice(income, budget, total, question)
+                        result = None
 
             except:
-                # 🔥 ANY ERROR → FALLBACK
-                fallback_advice(income, budget, total, question)
+                result = None
+
+        # 🔥 AFTER SPINNER → SHOW RESULT (IMPORTANT FIX)
+
+        if result:
+            st.subheader("🤖 AI Insight")
+            st.write(result)
+        else:
+            fallback_advice(income, budget, total, question)
