@@ -1,57 +1,58 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEYS
+import concurrent.futures
 
+
+# ---------------- FALLBACK ----------------
 
 def fallback_advice(income, budget, total, question):
 
     st.subheader("💡 Smart Financial Suggestions")
 
-    if "hi" in question.lower():
-        st.write("👋 Hello! Here's your financial summary:")
-
     savings = income - total
 
-    suggestions = []
+    if "hi" in question.lower():
+        st.write("👋 Hello! Here's your financial summary:")
 
     if total > budget:
         suggestions = [
             "🚨 You are overspending. Cut down unnecessary expenses",
-            "🛑 Avoid shopping and entertainment for a few days",
-            "📊 Track every expense daily",
-            "🍔 Reduce food delivery / outside food",
-            "💡 Focus only on essential needs",
-            "📉 Try to bring spending below budget immediately"
+            "🛑 Avoid shopping and entertainment",
+            "📊 Track daily expenses",
+            "🍔 Reduce outside food",
+            "💡 Focus on essentials",
+            "📉 Bring spending under budget"
         ]
 
     elif total > 0.8 * budget:
         suggestions = [
-            "⚠️ You are close to your budget limit",
-            "📊 Monitor daily spending carefully",
-            "🛍 Avoid impulse purchases",
+            "⚠️ Near budget limit",
+            "📊 Monitor spending",
+            "🛍 Avoid impulse buying",
             "🍽 Reduce eating out",
-            "📅 Plan remaining month expenses",
-            "💡 Try to save at least small amount"
+            "📅 Plan remaining days",
+            "💡 Save small amount"
         ]
 
     elif total > 0.5 * budget:
         suggestions = [
-            "👍 Your spending is moderate",
-            "💰 Try increasing your savings",
-            "📊 Optimize unnecessary expenses",
-            "🛍 Avoid luxury purchases",
-            "📈 Start small investments",
-            "💡 Plan ahead for upcoming expenses"
+            "👍 Moderate spending",
+            "💰 Increase savings",
+            "📊 Optimize expenses",
+            "🛍 Avoid luxury",
+            "📈 Start investing",
+            "💡 Plan ahead"
         ]
 
     else:
         suggestions = [
-            "🎉 Excellent financial management!",
-            "💰 You are saving well",
-            "📈 Consider investing your savings",
-            "🛡 Build an emergency fund",
-            "📊 Track spending for consistency",
-            "🚀 Explore passive income ideas"
+            "🎉 Excellent management!",
+            "💰 Saving well",
+            "📈 Invest savings",
+            "🛡 Build emergency fund",
+            "📊 Track consistency",
+            "🚀 Explore passive income"
         ]
 
     for s in suggestions:
@@ -60,41 +61,85 @@ def fallback_advice(income, budget, total, question):
     st.success(f"💰 Savings: ₹{savings}")
 
 
+# ---------------- AI CALL FUNCTION ----------------
+
+def get_ai_response(context, question):
+
+    genai.configure(api_key=GOOGLE_API_KEYS[0])
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    response = model.generate_content(context + question)
+
+    if response and hasattr(response, "text"):
+        return response.text
+
+    return None
+
+
+# ---------------- MAIN FUNCTION ----------------
+
 def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    question = st.text_input("Ask about your finances")
+    # SESSION STATE
+    if "ai_input" not in st.session_state:
+        st.session_state.ai_input = ""
 
-    if st.button("Ask AI") or (question and st.session_state.get("enter_pressed", False)):
+    col1, col2, col3 = st.columns([5,1,1])
+
+    with col1:
+        question = st.text_input(
+            "Ask about your finances",
+            key="ai_input"
+        )
+
+    with col2:
+        ask_clicked = st.button("Ask AI")
+
+    with col3:
+        if st.button("❌ Clear"):
+            st.session_state.clear()
+            st.rerun()
+
+    # ENTER KEY SUPPORT
+    if question and not ask_clicked:
+        ask_clicked = True
+
+    # ---------------- EXECUTION ----------------
+
+    if ask_clicked:
 
         if not question.strip():
             st.warning("Please enter a question")
             return
 
-        with st.spinner("Analyzing your finances... 🤔"):
-
-            # 🔥 TRY AI FIRST
-            try:
-                genai.configure(api_key=GOOGLE_API_KEYS[0])
-                model = genai.GenerativeModel("gemini-2.5-flash")
-
-                context = f"""
+        context = f"""
 Income: {income}
 Budget: {budget}
 Spending: {total}
 """
 
-                response = model.generate_content(context + question)
+        with st.spinner("Analyzing your finances... 🤔"):
 
-                if response and hasattr(response, "text") and response.text:
-                    st.subheader("🤖 AI Insight")
-                    st.write(response.text)
+            try:
+                # 🔥 TIMEOUT = 10 seconds
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(get_ai_response, context, question)
 
-                else:
-                    # fallback if empty response
-                    fallback_advice(income, budget, total, question)
+                    try:
+                        result = future.result(timeout=10)  # ⏱️ 10 sec limit
+
+                        if result:
+                            st.subheader("🤖 AI Insight")
+                            st.write(result)
+                        else:
+                            fallback_advice(income, budget, total, question)
+
+                    except concurrent.futures.TimeoutError:
+                        # 🔥 TIMEOUT → FALLBACK
+                        fallback_advice(income, budget, total, question)
 
             except:
-                # 🔥 AUTO FALLBACK
+                # 🔥 ANY ERROR → FALLBACK
                 fallback_advice(income, budget, total, question)
