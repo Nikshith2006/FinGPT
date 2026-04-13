@@ -13,41 +13,36 @@ def generate_with_key(api_key, prompt):
         return e
 
 
-def fallback_advice(income, budget, total):
-    """Smart local financial suggestions (no AI needed)"""
+def fallback_advice(income, budget, total, question):
+    """Smart fallback suggestions"""
 
     st.subheader("💡 Smart Financial Suggestions")
 
+    # Simple conversational response
+    if "hi" in question.lower() or "hello" in question.lower():
+        st.write("👋 Hello! Here’s your financial overview:")
+
+    # Financial logic
     if total > budget:
         st.error("🚨 You are overspending!")
         st.write("• Reduce unnecessary expenses")
-        st.write("• Focus on essential spending only")
-        st.write("• Avoid shopping & entertainment temporarily")
+        st.write("• Avoid shopping & entertainment for some time")
 
     elif total > 0.8 * budget:
         st.warning("⚠️ You are close to your budget limit")
-        st.write("• Control spending for the rest of the month")
-        st.write("• Track daily expenses carefully")
+        st.write("• Control your daily expenses")
 
     elif total > 0.5 * budget:
-        st.info("👍 You are managing your budget fairly well")
-        st.write("• Try to save more")
-        st.write("• Avoid impulse purchases")
+        st.info("👍 Your spending is moderate")
+        st.write("• Try to save more this month")
 
     else:
-        st.success("🎉 Excellent financial management!")
-        st.write("• You are saving well")
+        st.success("🎉 Excellent! You are saving well")
         st.write("• Consider investing your savings")
 
-    # Extra suggestions
-    if income > 0:
-        savings = income - total
-        st.write(f"💰 Estimated Savings: ₹{savings}")
-
-        if savings > 0:
-            st.write("• You can allocate savings to investments or emergency funds")
-        else:
-            st.write("• Try to increase savings by reducing expenses")
+    # Savings insight
+    savings = income - total
+    st.write(f"💰 Estimated Savings: ₹{savings}")
 
 
 def ai_financial_assistant(income, budget, total):
@@ -58,7 +53,11 @@ def ai_financial_assistant(income, budget, total):
 
     ask = st.button("Ask AI")
 
-    if ask and question and question.strip():
+    if ask:
+
+        if not question.strip():
+            st.warning("Please enter a question")
+            return
 
         context = f"""
 You are a personal finance assistant.
@@ -74,20 +73,25 @@ Give helpful financial advice based on this data.
         prompt = context + question
 
         response_text = None
+        last_error = None
 
-        # 🔥 TRY ALL API KEYS
-        for key in GOOGLE_API_KEYS:
+        with st.spinner("Thinking... 🤔"):
 
-            result = generate_with_key(key, prompt)
+            # 🔥 TRY ALL KEYS
+            for key in GOOGLE_API_KEYS:
 
-            if hasattr(result, "text"):
-                response_text = result.text
-                break
+                result = generate_with_key(key, prompt)
 
-        # ✅ IF AI WORKS
+                if hasattr(result, "text") and result.text:
+                    response_text = result.text
+                    break
+                else:
+                    last_error = str(result)
+
+        # ✅ SHOW AI RESPONSE
         if response_text:
             st.write(response_text)
 
-        # 🔥 IF AI FAILS → NO ERROR SHOWN
+        # 🔥 ALWAYS SHOW FALLBACK (NO BLANK SCREEN)
         else:
-            fallback_advice(income, budget, total)
+            fallback_advice(income, budget, total, question)
