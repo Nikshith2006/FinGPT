@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEY
-
+import time   # ✅ NEW
 
 # SAFE CONFIG
 try:
@@ -19,7 +19,22 @@ def ai_financial_assistant(income, budget, total):
 
     question = st.text_input("Ask about your finances")
 
-    if question and question.strip():
+    # ✅ NEW: Button to prevent auto multiple calls
+    ask = st.button("Ask AI")
+
+    # ✅ NEW: Track last request time
+    if "last_ai_call" not in st.session_state:
+        st.session_state.last_ai_call = 0
+
+    if ask and question and question.strip():
+
+        current_time = time.time()
+
+        # ✅ NEW: Cooldown (40 seconds)
+        if current_time - st.session_state.last_ai_call < 40:
+            remaining = int(40 - (current_time - st.session_state.last_ai_call))
+            st.warning(f"⏳ Please wait {remaining}s before next request")
+            return
 
         context = f"""
 You are a personal finance assistant.
@@ -37,6 +52,9 @@ Give helpful financial advice based on this data.
 
                 response = model.generate_content(context + question)
 
+                # ✅ SAVE TIME AFTER SUCCESS
+                st.session_state.last_ai_call = time.time()
+
                 if response and hasattr(response, "text"):
                     st.write(response.text)
                 else:
@@ -44,5 +62,10 @@ Give helpful financial advice based on this data.
 
         except Exception as e:
 
-            st.error("❌ AI Assistant failed")
+            # ✅ HANDLE QUOTA ERROR CLEANLY
+            if "429" in str(e):
+                st.error("🚫 Rate limit reached. Please wait ~40 seconds.")
+            else:
+                st.error("❌ AI Assistant failed")
+
             st.code(str(e))   # shows real error
