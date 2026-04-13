@@ -1,8 +1,70 @@
+import streamlit as st
+import google.generativeai as genai
+from config import GOOGLE_API_KEYS
+
+
+# ---------------- FALLBACK ----------------
+def fallback_advice(income, budget, total, question):
+
+    st.subheader("💡 Smart Financial Suggestions")
+
+    if "hi" in question.lower():
+        st.write("👋 Hello! Here's your financial summary:")
+
+    savings = income - total
+
+    if total > budget:
+        suggestions = [
+            "🚨 You are overspending. Cut unnecessary expenses",
+            "🛑 Avoid shopping temporarily",
+            "📊 Track daily expenses strictly",
+            "🍔 Reduce outside food",
+            "💡 Focus on essentials",
+            "📉 Bring spending under control"
+        ]
+
+    elif total > 0.8 * budget:
+        suggestions = [
+            "⚠️ Close to budget limit",
+            "📊 Monitor daily spending",
+            "🛍 Avoid impulse buying",
+            "🍽 Reduce eating out",
+            "📅 Plan remaining expenses",
+            "💡 Try to save small amount"
+        ]
+
+    elif total > 0.5 * budget:
+        suggestions = [
+            "👍 Spending is moderate",
+            "💰 Increase savings",
+            "📊 Optimize expenses",
+            "🛍 Avoid luxury items",
+            "📈 Start investing",
+            "💡 Plan ahead"
+        ]
+
+    else:
+        suggestions = [
+            "🎉 Excellent financial management!",
+            "💰 Saving well",
+            "📈 Consider investing",
+            "🛡 Build emergency fund",
+            "📊 Maintain consistency",
+            "🚀 Explore passive income"
+        ]
+
+    for s in suggestions:
+        st.write("•", s)
+
+    st.success(f"💰 Savings: ₹{savings}")
+
+
+# ---------------- MAIN ----------------
 def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # INIT STATE
+    # SESSION STATE
     if "ai_output" not in st.session_state:
         st.session_state.ai_output = None
 
@@ -39,17 +101,17 @@ def ai_financial_assistant(income, budget, total):
             st.warning("Please enter a question")
             return
 
-        # 🔥 SHOW IMMEDIATELY (NO WAIT)
-        fallback_advice(income, budget, total, question)
+        # 🔥 SPINNER (SHORT + SAFE)
+        with st.spinner("Analyzing your finances... 🤔"):
 
-        # 🔥 SAVE STATE (for persistence)
-        st.session_state.ai_output = ("fallback", question)
+            # SHOW SUGGESTIONS IMMEDIATELY
+            fallback_advice(income, budget, total, question)
 
-        # TRY AI (optional)
+            # SAVE OUTPUT
+            st.session_state.ai_output = ("fallback", question)
+
+        # 🔥 TRY AI (OPTIONAL, NO BLOCK UI)
         try:
-            import google.generativeai as genai
-            from config import GOOGLE_API_KEYS
-
             genai.configure(api_key=GOOGLE_API_KEYS[0])
             model = genai.GenerativeModel("gemini-2.5-flash")
 
@@ -68,7 +130,7 @@ Spending: {total}
         except:
             pass
 
-    # 🔥 ALSO SHOW PREVIOUS OUTPUT (important)
+    # SHOW PREVIOUS OUTPUT
     elif st.session_state.ai_output:
 
         mode, data = st.session_state.ai_output
