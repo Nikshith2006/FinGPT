@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date   # ✅ added date
+from datetime import datetime, date
 from features.ai_assistant import ai_financial_assistant
 from features.dashboard_sections import (
     expense_table,
@@ -8,7 +8,6 @@ from features.dashboard_sections import (
     smart_suggestions
 )
 
-# NEW IMPORT FOR GOOGLE SHEETS
 from database import expenses_sheet, users_sheet
 
 
@@ -116,16 +115,19 @@ def dashboard():
 
     st.sidebar.divider()
 
-    # ---------------- ADD EXPENSE (🔥 FIXED) ----------------
+    # ---------------- ADD EXPENSE (🔥 FINAL FIX) ----------------
 
     st.sidebar.subheader("➕ Add Expense")
 
-    # ✅ FORM → enables Enter key
+    # ✅ FIX: Force today's date on every load
+    if "expense_date" not in st.session_state:
+        st.session_state.expense_date = date.today()
+
     with st.sidebar.form("expense_form", clear_on_submit=True):
 
         exp_date = st.date_input(
             "📅 Date",
-            value=date.today()   # ✅ always today
+            value=st.session_state.expense_date
         )
 
         exp_cat = st.selectbox(
@@ -139,8 +141,10 @@ def dashboard():
 
         submitted = st.form_submit_button("Add Expense")
 
-    # ✅ HANDLE BOTH ENTER + BUTTON
     if submitted:
+
+        # ✅ After submit → reset to today again
+        st.session_state.expense_date = date.today()
 
         exp_datetime = datetime.combine(exp_date, datetime.now().time())
 
