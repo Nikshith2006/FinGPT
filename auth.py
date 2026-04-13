@@ -5,6 +5,9 @@ import requests
 from dotenv import load_dotenv
 from streamlit_oauth import OAuth2Component
 
+# ✅ NEW: import Google Sheets
+from database import users_sheet
+
 load_dotenv()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -35,7 +38,13 @@ def login():
     unsafe_allow_html=True
     )
 
-    users = pd.read_csv("data/users.csv")
+    # ✅ LOAD FROM GOOGLE SHEETS
+    users = pd.DataFrame(users_sheet.get_all_records())
+
+    # NORMALIZE USER DATA
+    if not users.empty:
+        users["Name"] = users["Name"].astype(str).str.strip().str.lower()
+        users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
 
     # CENTER LOGIN CARD
     col1, col2, col3 = st.columns([1,2,1])
@@ -43,35 +52,34 @@ def login():
     with col2:
 
         name = st.text_input("👤 Name")
-
         contact = st.text_input("📧 Email or Phone")
 
         if st.button("Login", use_container_width=True):
 
+            name_clean = name.strip().lower()
+            contact_clean = contact.strip().lower()
+
             existing_user = users[
-                (users["Name"] == name) &
-                (users["Contact"] == contact)
+                (users["Name"] == name_clean) &
+                (users["Contact"] == contact_clean)
             ]
 
             if not existing_user.empty:
 
-                st.session_state.user = name
+                st.session_state.user = name_clean
                 st.rerun()
 
             else:
 
-                new_user = pd.DataFrame({
-                    "Name":[name],
-                    "Contact":[contact],
-                    "MonthlyIncome":[0],
-                    "MonthlyBudget":[0]
-                })
+                # ✅ SAVE TO GOOGLE SHEETS
+                users_sheet.append_row([
+                    name_clean,
+                    contact_clean,
+                    0,
+                    0
+                ])
 
-                users = pd.concat([users,new_user],ignore_index=True)
-
-                users.to_csv("data/users.csv",index=False)
-
-                st.session_state.user = name
+                st.session_state.user = name_clean
                 st.rerun()
 
         # OR divider
@@ -84,17 +92,13 @@ def login():
         unsafe_allow_html=True
         )
 
-        # GOOGLE LOGIN BUTTON (CENTERED)
+        # GOOGLE LOGIN BUTTON
         result = oauth2.authorize_button(
             name="Login with Google",
             icon="https://www.google.com/favicon.ico",
-
-            # Local run
             redirect_uri="https://fingpt20.streamlit.app",
-
             scope="openid email profile",
             key="google",
-
             use_container_width=True
         )
 
@@ -107,10 +111,14 @@ def login():
                 },
             ).json()
 
-            name = userinfo["name"]
-            email = userinfo["email"]
+            name = userinfo["name"].strip().lower()
+            email = userinfo["email"].strip().lower()
 
-            users = pd.read_csv("data/users.csv")
+            users = pd.DataFrame(users_sheet.get_all_records())
+
+            if not users.empty:
+                users["Name"] = users["Name"].astype(str).str.strip().str.lower()
+                users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
 
             existing_user = users[
                 (users["Name"] == name) &
@@ -119,18 +127,12 @@ def login():
 
             if existing_user.empty:
 
-                new_user = pd.DataFrame({
-                    "Name":[name],
-                    "Contact":[email],
-                    "MonthlyIncome":[0],
-                    "MonthlyBudget":[0]
-                })
-
-                users = pd.concat([users,new_user],ignore_index=True)
-
-                users.to_csv("data/users.csv",index=False)
+                users_sheet.append_row([
+                    name,
+                    email,
+                    0,
+                    0
+                ])
 
             st.session_state.user = name
-
             st.rerun()
-
