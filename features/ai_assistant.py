@@ -2,15 +2,52 @@ import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEYS
 
-# CREATE MODELS FOR EACH KEY
-models = []
 
-for key in GOOGLE_API_KEYS:
+def generate_with_key(api_key, prompt):
     try:
-        genai.configure(api_key=key)
-        models.append(genai.GenerativeModel("gemini-2.5-flash"))
-    except:
-        pass
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        return response
+    except Exception as e:
+        return e
+
+
+def fallback_advice(income, budget, total):
+    """Smart local financial suggestions (no AI needed)"""
+
+    st.subheader("💡 Smart Financial Suggestions")
+
+    if total > budget:
+        st.error("🚨 You are overspending!")
+        st.write("• Reduce unnecessary expenses")
+        st.write("• Focus on essential spending only")
+        st.write("• Avoid shopping & entertainment temporarily")
+
+    elif total > 0.8 * budget:
+        st.warning("⚠️ You are close to your budget limit")
+        st.write("• Control spending for the rest of the month")
+        st.write("• Track daily expenses carefully")
+
+    elif total > 0.5 * budget:
+        st.info("👍 You are managing your budget fairly well")
+        st.write("• Try to save more")
+        st.write("• Avoid impulse purchases")
+
+    else:
+        st.success("🎉 Excellent financial management!")
+        st.write("• You are saving well")
+        st.write("• Consider investing your savings")
+
+    # Extra suggestions
+    if income > 0:
+        savings = income - total
+        st.write(f"💰 Estimated Savings: ₹{savings}")
+
+        if savings > 0:
+            st.write("• You can allocate savings to investments or emergency funds")
+        else:
+            st.write("• Try to increase savings by reducing expenses")
 
 
 def ai_financial_assistant(income, budget, total):
@@ -34,37 +71,23 @@ Current Spending: {total}
 Give helpful financial advice based on this data.
 """
 
-        with st.spinner("Thinking... 🤔"):
+        prompt = context + question
 
-            response_text = None
-            error_message = None
+        response_text = None
 
-            # 🔥 TRY ALL KEYS
-            for i, key in enumerate(GOOGLE_API_KEYS):
+        # 🔥 TRY ALL API KEYS
+        for key in GOOGLE_API_KEYS:
 
-                try:
-                    genai.configure(api_key=key)
-                    model = genai.GenerativeModel("gemini-2.5-flash")
+            result = generate_with_key(key, prompt)
 
-                    response = model.generate_content(context + question)
+            if hasattr(result, "text"):
+                response_text = result.text
+                break
 
-                    if response and hasattr(response, "text"):
-                        response_text = response.text
-                        break
+        # ✅ IF AI WORKS
+        if response_text:
+            st.write(response_text)
 
-                except Exception as e:
-                    error_message = str(e)
-
-                    if "429" in error_message:
-                        continue
-                    else:
-                        st.error("❌ AI Assistant failed")
-                        st.code(error_message)
-                        return
-
-            if response_text:
-                st.success(f"✅ Response from API Key {i+1}")
-                st.write(response_text)
-            else:
-                st.error("🚫 All API keys exhausted for today")
-                st.code(error_message)
+        # 🔥 IF AI FAILS → NO ERROR SHOWN
+        else:
+            fallback_advice(income, budget, total)
