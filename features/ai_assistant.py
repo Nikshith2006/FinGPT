@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEYS
-import time
+import concurrent.futures
 
 
 # ---------------- FALLBACK ----------------
@@ -63,7 +63,7 @@ def fallback_advice(income, budget, total, question):
 
 # ---------------- AI CALL ----------------
 
-def try_ai(context, question):
+def get_ai_response(context, question):
     try:
         genai.configure(api_key=GOOGLE_API_KEYS[0])
         model = genai.GenerativeModel("gemini-2.5-flash")
@@ -84,50 +84,41 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # SAFE SESSION STATE INIT
+    # -------- SESSION STATE --------
     if "ai_input" not in st.session_state:
         st.session_state.ai_input = ""
 
-    if "ask_clicked" not in st.session_state:
-        st.session_state.ask_clicked = False
+    if "clear_flag" not in st.session_state:
+        st.session_state.clear_flag = False
 
-    if "clear_clicked" not in st.session_state:
-        st.session_state.clear_clicked = False
-
-    # 🔥 HANDLE CLEAR SAFELY BEFORE INPUT
-    if st.session_state.clear_clicked:
+    # -------- HANDLE CLEAR SAFELY --------
+    if st.session_state.clear_flag:
         st.session_state.ai_input = ""
-        st.session_state.clear_clicked = False
+        st.session_state.clear_flag = False
 
-    # ---------------- INPUT ----------------
-
+    # -------- INPUT --------
     question = st.text_input(
         "Ask about your finances",
         key="ai_input"
     )
 
-    # ---------------- BUTTONS ----------------
-
+    # -------- BUTTONS (PROPER POSITION) --------
     col1, col2 = st.columns([1,1])
 
     with col1:
-        if st.button("Ask AI"):
-            st.session_state.ask_clicked = True
+        ask_clicked = st.button("Ask AI")
 
     with col2:
         if st.button("❌ Clear"):
-            st.session_state.clear_clicked = True
+            st.session_state.clear_flag = True
             st.rerun()
 
     # ENTER KEY SUPPORT
-    if question and not st.session_state.ask_clicked:
-        st.session_state.ask_clicked = True
+    if question and not ask_clicked:
+        ask_clicked = True
 
-    # ---------------- EXECUTION ----------------
-
-    if st.session_state.ask_clicked:
-
-        st.session_state.ask_clicked = False  # 🔥 prevent loop
+    # -------- EXECUTION --------
+    if ask_clicked:
 
         if not question.strip():
             st.warning("Please enter a question")
@@ -141,22 +132,20 @@ Spending: {total}
 
         result = None
 
-        # 🔥 SAFE TIME LIMIT
+        # 🔥 THREAD + TIMEOUT (KEY FIX)
         with st.spinner("Analyzing your finances... 🤔"):
 
-            start = time.time()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(get_ai_response, context, question)
 
-            try:
-                result = try_ai(context, question)
-            except:
-                result = None
+                try:
+                    # ⏱️ WAIT MAX 10 SECONDS
+                    result = future.result(timeout=10)
 
-            # ⏱️ If takes too long → fallback
-            if time.time() - start > 10:
-                result = None
+                except concurrent.futures.TimeoutError:
+                    result = None
 
-        # ---------------- OUTPUT ----------------
-
+        # -------- OUTPUT --------
         if result:
             st.subheader("🤖 AI Insight")
             st.write(result)
