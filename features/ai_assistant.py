@@ -71,20 +71,21 @@ def ai_financial_assistant(income, budget, total):
     if "input_key" not in st.session_state:
         st.session_state.input_key = "input_1"
 
-    # INPUT
-    question = st.text_input(
-        "Ask about your finances",
-        key=st.session_state.input_key
-    )
+    # 🔥 FORM (ENABLES ENTER KEY)
+    with st.form("ai_form", clear_on_submit=False):
 
-    # BUTTONS
-    col1, col2, col3 = st.columns([1,6,1])
+        question = st.text_input(
+            "Ask about your finances",
+            key=st.session_state.input_key
+        )
 
-    with col1:
-        ask_clicked = st.button("Ask AI")
+        col1, col2, col3 = st.columns([1,6,1])
 
-    with col3:
-        clear_clicked = st.button("❌ Clear")
+        with col1:
+            ask_clicked = st.form_submit_button("Ask AI")
+
+        with col3:
+            clear_clicked = st.form_submit_button("❌ Clear")
 
     # CLEAR BUTTON
     if clear_clicked:
@@ -94,23 +95,21 @@ def ai_financial_assistant(income, budget, total):
         st.session_state.ai_output = None
         st.rerun()
 
-    # ASK BUTTON
+    # ASK (ENTER OR BUTTON)
     if ask_clicked:
 
         if not question.strip():
             st.warning("Please enter a question")
             return
 
-        # 🔥 SPINNER (SHORT + SAFE)
+        # SPINNER
         with st.spinner("Analyzing your finances... 🤔"):
 
-            # SHOW SUGGESTIONS IMMEDIATELY
             fallback_advice(income, budget, total, question)
 
-            # SAVE OUTPUT
             st.session_state.ai_output = ("fallback", question)
 
-        # 🔥 TRY AI (OPTIONAL, NO BLOCK UI)
+        # TRY AI
         try:
             genai.configure(api_key=GOOGLE_API_KEYS[0])
             model = genai.GenerativeModel("gemini-2.5-flash")
