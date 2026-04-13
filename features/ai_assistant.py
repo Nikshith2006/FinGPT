@@ -9,11 +9,11 @@ try:
 except:
     st.error("API Key not configured")
 
-# ✅ PRIMARY MODEL (your choice)
+# PRIMARY MODEL
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# ✅ BACKUP MODEL (fallback)
-backup_model = genai.GenerativeModel("gemini-1.5-flash")
+# ✅ FIXED BACKUP MODEL
+backup_model = genai.GenerativeModel("gemini-1.5-pro")
 
 
 def ai_financial_assistant(income, budget, total):
@@ -23,9 +23,6 @@ def ai_financial_assistant(income, budget, total):
     question = st.text_input("Ask about your finances")
 
     ask = st.button("Ask AI")
-
-    if "last_ai_call" not in st.session_state:
-        st.session_state.last_ai_call = 0
 
     if ask and question and question.strip():
 
@@ -43,7 +40,7 @@ Give helpful financial advice based on this data.
         try:
             with st.spinner("Thinking... 🤔"):
 
-                # 🔥 TRY PRIMARY MODEL FIRST
+                # TRY PRIMARY MODEL
                 response = model.generate_content(context + question)
 
                 if response and hasattr(response, "text"):
@@ -53,7 +50,6 @@ Give helpful financial advice based on this data.
 
         except Exception as e:
 
-            # 🔥 IF PRIMARY FAILS → USE BACKUP
             if "429" in str(e):
 
                 st.warning("⚠️ Primary AI limit reached. Switching to backup model...")
