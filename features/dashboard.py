@@ -24,17 +24,26 @@ def dashboard():
     # ================= CLEAN DATA =================
     expenses.columns = expenses.columns.str.strip()
 
-    # 🔥 FIX DATE FORMAT ISSUE (VERY IMPORTANT)
-    expenses["Date"] = expenses["Date"].astype(str).str.split(" ").str[0]
-
+    # 🔥 FINAL DATE FIX (HANDLE ALL FORMATS)
     expenses["Date"] = pd.to_datetime(
         expenses["Date"],
-        format="%Y-%m-%d",
+        errors="coerce"
+    )
+
+    # Convert to uniform format
+    expenses["Date"] = expenses["Date"].dt.strftime("%Y-%m-%d")
+
+    # Convert back to datetime for filtering
+    expenses["Date"] = pd.to_datetime(
+        expenses["Date"],
         errors="coerce"
     )
 
     # CLEAN USER COLUMN
     expenses["User"] = expenses["User"].astype(str).str.strip().str.lower()
+
+    # ALSO CLEAN USERS SHEET
+    users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
 
     current_user = str(st.session_state.user).strip().lower()
 
@@ -44,6 +53,7 @@ def dashboard():
     if user_row.empty:
         users_sheet.append_row([current_user, current_user, 0, 0])
         users = pd.DataFrame(users_sheet.get_all_records())
+        users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
         user_row = users[users["Contact"] == current_user]
 
     user_data = user_row.iloc[0]
@@ -89,7 +99,7 @@ def dashboard():
         (expenses["Date"].dt.year == year)
     ]
 
-    # DEBUG (REMOVE LATER IF YOU WANT)
+    # DEBUG (you can remove later)
     st.write("Filtered rows:", len(user_expenses))
 
     # ================= SIDEBAR =================
