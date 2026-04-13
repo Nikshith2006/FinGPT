@@ -14,19 +14,28 @@ from database import expenses_sheet, users_sheet
 
 def dashboard():
 
-    # READ DATA FROM GOOGLE SHEETS
-    users = pd.DataFrame(users_sheet.get_all_records())
-    expenses = pd.DataFrame(expenses_sheet.get_all_records())
+    # ---------------- FIX 1: LOAD FULL DATA (NO LIMIT BUG) ----------------
+    users_data = users_sheet.get_all_values()
+    users = pd.DataFrame(users_data[1:], columns=users_data[0])
 
-    # Ensure Date column is datetime
+    expenses_data = expenses_sheet.get_all_values()
+    expenses = pd.DataFrame(expenses_data[1:], columns=expenses_data[0])
+
+    # ---------------- FIX 2: CLEAN DATA ----------------
+    expenses["Amount"] = pd.to_numeric(expenses["Amount"], errors="coerce").fillna(0)
     expenses["Date"] = pd.to_datetime(expenses["Date"], errors="coerce")
+
+    # 🔥 VERY IMPORTANT FIX (User mismatch issue)
+    expenses["User"] = expenses["User"].astype(str).str.strip().str.lower()
+    current_user = st.session_state.user.strip().lower()
+
+    users["Name"] = users["Name"].astype(str).str.strip().str.lower()
 
     # -------- FIX: HANDLE NEW USER LOGIN --------
 
-    user_row_data = users[users["Name"] == st.session_state.user]
+    user_row_data = users[users["Name"] == current_user]
 
     if user_row_data.empty:
-        # Add new user automatically
         users_sheet.append_row([
             st.session_state.user,
             "",
@@ -34,10 +43,12 @@ def dashboard():
             0
         ])
 
-        # Reload users after inserting
-        users = pd.DataFrame(users_sheet.get_all_records())
+        users_data = users_sheet.get_all_values()
+        users = pd.DataFrame(users_data[1:], columns=users_data[0])
 
-        user_row_data = users[users["Name"] == st.session_state.user]
+        users["Name"] = users["Name"].astype(str).str.strip().str.lower()
+
+        user_row_data = users[users["Name"] == current_user]
 
     user_data = user_row_data.iloc[0]
 
@@ -72,27 +83,24 @@ def dashboard():
     colm1, colm2 = st.columns(2)
 
     with colm1:
-
         selected_month_name = st.selectbox(
             "📆 Month",
             month_names,
             index=current_month - 1
         )
-
         selected_month = month_names.index(selected_month_name) + 1
 
     with colm2:
-
         selected_year = st.selectbox(
             "📅 Year",
             years,
             index=years.index(current_year)
         )
 
-    # ---------------- FILTER USER DATA ----------------
+    # ---------------- FIX 3: FILTER CORRECTLY ----------------
 
     user_expenses = expenses[
-        (expenses["User"] == st.session_state.user) &
+        (expenses["User"] == current_user) &
         (expenses["Date"].dt.month == selected_month) &
         (expenses["Date"].dt.year == selected_year)
     ].copy()
@@ -103,16 +111,16 @@ def dashboard():
 
     income = st.sidebar.number_input(
         "💰 Monthly Income",
-        value=int(user_data["MonthlyIncome"])
+        value=int(float(user_data["MonthlyIncome"]))
     )
 
     budget = st.sidebar.number_input(
         "🎯 Monthly Budget",
-        value=int(user_data["MonthlyBudget"])
+        value=int(float(user_data["MonthlyBudget"]))
     )
 
     # UPDATE USER DATA IN GOOGLE SHEETS
-    user_row = users[users["Name"] == st.session_state.user].index[0] + 2
+    user_row = users[users["Name"] == current_user].index[0] + 2
     users_sheet.update(f"C{user_row}", [[income]])
     users_sheet.update(f"D{user_row}", [[budget]])
 
@@ -137,41 +145,33 @@ def dashboard():
 
         exp_date = pd.to_datetime(exp_date)
 
-        # ADD NEW ROW TO GOOGLE SHEETS
+        # 🔥 FIX 4: SAVE USER CONSISTENTLY
         expenses_sheet.append_row([
             exp_date.strftime("%Y-%m-%d"),
             exp_cat,
             exp_amt,
             exp_desc,
-            st.session_state.user
+            st.session_state.user.strip()  # keep clean
         ])
 
         st.success("Expense Added Successfully!")
-
         st.rerun()
 
     # ---------------- METRICS ----------------
 
     total = user_expenses["Amount"].sum()
-
     savings = income - total
 
     health_score = max(0, 100 - (total / budget * 100)) if budget > 0 else 0
 
-    # -------- HEALTH SCORE LABEL --------
-
     if health_score >= 90:
         health_label = "Excellent"
-
     elif health_score >= 75:
         health_label = "Good"
-
     elif health_score >= 60:
         health_label = "Moderate"
-
     elif health_score >= 40:
         health_label = "Poor"
-
     else:
         health_label = "Bad"
 
