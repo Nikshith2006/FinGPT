@@ -82,11 +82,16 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # SESSION STATE
+    # SESSION STATE INIT
     if "ai_input" not in st.session_state:
-        st.session_state.ai_input = ""
+        st.session_state["ai_input"] = ""
 
-    # 🔥 CLEAN LAYOUT (LIKE BEFORE)
+    # 🔥 HANDLE CLEAR SAFELY (IMPORTANT FIX)
+    if st.session_state.get("clear_ai", False):
+        st.session_state["ai_input"] = ""
+        st.session_state["clear_ai"] = False
+
+    # 🔥 CLEAN LAYOUT
     col1, col2, col3 = st.columns([6,1,1])
 
     with col1:
@@ -100,7 +105,7 @@ def ai_financial_assistant(income, budget, total):
 
     with col3:
         if st.button("❌ Clear"):
-            st.session_state.ai_input = ""
+            st.session_state["clear_ai"] = True
             st.rerun()
 
     # ENTER KEY SUPPORT
@@ -123,7 +128,7 @@ Spending: {total}
 
         result = None
 
-        # 🔥 SPINNER ONLY FOR LOADING
+        # 🔥 SPINNER ONLY DURING LOADING
         with st.spinner("Analyzing your finances... 🤔"):
 
             try:
@@ -131,7 +136,7 @@ Spending: {total}
                     future = executor.submit(get_ai_response, context, question)
 
                     try:
-                        result = future.result(timeout=10)
+                        result = future.result(timeout=10)  # ⏱️ 10 sec
 
                     except concurrent.futures.TimeoutError:
                         result = None
@@ -139,7 +144,7 @@ Spending: {total}
             except:
                 result = None
 
-        # 🔥 AFTER SPINNER → SHOW RESULT (IMPORTANT FIX)
+        # 🔥 AFTER SPINNER → SHOW RESULT
 
         if result:
             st.subheader("🤖 AI Insight")
