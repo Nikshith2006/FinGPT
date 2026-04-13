@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime
+import pytz  # ✅ NEW
+
 from features.ai_assistant import ai_financial_assistant
 from features.dashboard_sections import (
     expense_table,
@@ -115,14 +117,19 @@ def dashboard():
 
     st.sidebar.divider()
 
-    # ---------------- ADD EXPENSE (🔥 FINAL FIX) ----------------
+    # ---------------- ADD EXPENSE (🔥 IST FIX) ----------------
 
     st.sidebar.subheader("➕ Add Expense")
 
-    # ✅ FIX: Force today's date on every load
-    if "expense_date" not in st.session_state:
-        st.session_state.expense_date = date.today()
+    # ✅ IST TIME FIX
+    ist = pytz.timezone("Asia/Kolkata")
+    today_ist = datetime.now(ist).date()
 
+    # ✅ FIRST LOAD
+    if "expense_date" not in st.session_state:
+        st.session_state.expense_date = today_ist
+
+    # FORM (ENTER SUPPORT)
     with st.sidebar.form("expense_form", clear_on_submit=True):
 
         exp_date = st.date_input(
@@ -141,10 +148,11 @@ def dashboard():
 
         submitted = st.form_submit_button("Add Expense")
 
+    # HANDLE SUBMIT
     if submitted:
 
-        # ✅ After submit → reset to today again
-        st.session_state.expense_date = date.today()
+        # ✅ Reset again to today IST
+        st.session_state.expense_date = today_ist
 
         exp_datetime = datetime.combine(exp_date, datetime.now().time())
 
