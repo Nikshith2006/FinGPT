@@ -111,8 +111,15 @@ def login():
                 },
             ).json()
 
-            name = userinfo["name"].strip().lower()
-            email = userinfo["email"].strip().lower()
+            # 🔥 FIX: SAFELY GET NAME
+            raw_name = userinfo.get("name")
+            email = userinfo.get("email", "").strip().lower()
+
+            if raw_name and raw_name.strip():
+                name = raw_name.strip().lower()
+            else:
+                # ✅ fallback: extract from email
+                name = email.split("@")[0].replace(".", " ").strip().lower()
 
             users = pd.DataFrame(users_sheet.get_all_records())
 
