@@ -11,17 +11,20 @@ from features.dashboard_sections import (
 
 from database import expenses_sheet, users_sheet
 
+# 🔥 IMPORTANT: CLEAR CACHE ALWAYS
+st.cache_data.clear()
+
 
 def dashboard():
 
+    # ================= LOAD DATA =================
     users = pd.DataFrame(users_sheet.get_all_records())
     expenses = pd.DataFrame(expenses_sheet.get_all_records())
 
-    # ================= FIX DATE ISSUE =================
-
+    # ================= CLEAN DATA =================
     expenses.columns = expenses.columns.str.strip()
 
-    # FORCE CLEAN DATE FORMAT (IMPORTANT FIX)
+    # 🔥 FIX DATE FORMAT ISSUE (VERY IMPORTANT)
     expenses["Date"] = expenses["Date"].astype(str).str.split(" ").str[0]
 
     expenses["Date"] = pd.to_datetime(
@@ -30,16 +33,12 @@ def dashboard():
         errors="coerce"
     )
 
-    # DO NOT DROP TOO EARLY (SAFE FILTER LATER)
-    # expenses = expenses.dropna(subset=["Date"])
-
     # CLEAN USER COLUMN
     expenses["User"] = expenses["User"].astype(str).str.strip().str.lower()
 
     current_user = str(st.session_state.user).strip().lower()
 
     # ================= USER DATA =================
-
     user_row = users[users["Contact"] == current_user]
 
     if user_row.empty:
@@ -50,7 +49,6 @@ def dashboard():
     user_data = user_row.iloc[0]
 
     # ================= HEADER =================
-
     col1, col2 = st.columns([9,1])
 
     with col1:
@@ -62,7 +60,6 @@ def dashboard():
             st.rerun()
 
     # ================= MONTH FILTER =================
-
     st.subheader("📅 Monthly Financial Overview")
 
     today = datetime.today()
@@ -84,7 +81,7 @@ def dashboard():
             index=5
         )
 
-    # FILTER USER EXPENSES SAFELY
+    # ================= FILTER DATA =================
     user_expenses = expenses[
         (expenses["User"] == current_user) &
         (expenses["Date"].notna()) &
@@ -92,8 +89,10 @@ def dashboard():
         (expenses["Date"].dt.year == year)
     ]
 
-    # ================= SIDEBAR =================
+    # DEBUG (REMOVE LATER IF YOU WANT)
+    st.write("Filtered rows:", len(user_expenses))
 
+    # ================= SIDEBAR =================
     st.sidebar.title("⚙️ Financial Settings")
 
     income = st.sidebar.number_input(
@@ -115,7 +114,6 @@ def dashboard():
     st.sidebar.divider()
 
     # ================= ADD EXPENSE =================
-
     st.sidebar.subheader("➕ Add Expense")
 
     exp_date = st.sidebar.date_input("📅 Date", datetime.today())
@@ -131,7 +129,6 @@ def dashboard():
 
     if st.sidebar.button("Add Expense"):
 
-        # ALWAYS SAVE IN CLEAN FORMAT
         formatted_date = exp_date.strftime("%Y-%m-%d")
 
         expenses_sheet.append_row([
@@ -143,10 +140,13 @@ def dashboard():
         ])
 
         st.success("✅ Expense Added Successfully!")
+
+        # 🔥 FORCE REFRESH
+        st.cache_data.clear()
+
         st.rerun()
 
     # ================= METRICS =================
-
     total = user_expenses["Amount"].sum()
     savings = income - total
 
@@ -160,17 +160,13 @@ def dashboard():
     m4.metric("💚 Health", f"{health:.0f}%")
 
     # ================= AI =================
-
     ai_financial_assistant(income, budget, total)
 
     # ================= TABLE =================
-
     expense_table(expenses, user_expenses)
 
     # ================= CHARTS =================
-
     charts_and_predictions(expenses, user_expenses)
 
     # ================= SUGGESTIONS =================
-
     smart_suggestions(total, budget)
