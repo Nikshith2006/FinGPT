@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEY
-import time   # ✅ NEW
+import time
 
 # SAFE CONFIG
 try:
@@ -9,7 +9,7 @@ try:
 except:
     st.error("API Key not configured")
 
-# SAME MODEL (as you requested)
+# SAME MODEL
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 
@@ -19,20 +19,34 @@ def ai_financial_assistant(income, budget, total):
 
     question = st.text_input("Ask about your finances")
 
-    # ✅ NEW: Button to prevent auto multiple calls
     ask = st.button("Ask AI")
 
-    # ✅ NEW: Track last request time
+    # 🔥 INIT SESSION STATES
     if "last_ai_call" not in st.session_state:
         st.session_state.last_ai_call = 0
 
+    if "last_question" not in st.session_state:
+        st.session_state.last_question = ""
+
+    if "last_response" not in st.session_state:
+        st.session_state.last_response = ""
+
+    # ✅ SHOW PREVIOUS RESPONSE (prevents re-call)
+    if st.session_state.last_response:
+        st.write(st.session_state.last_response)
+
     if ask and question and question.strip():
+
+        # 🔥 PREVENT SAME QUESTION SPAM
+        if question == st.session_state.last_question:
+            st.warning("⚠️ You already asked this. Showing previous answer.")
+            return
 
         current_time = time.time()
 
-        # ✅ NEW: Cooldown (40 seconds)
-        if current_time - st.session_state.last_ai_call < 40:
-            remaining = int(40 - (current_time - st.session_state.last_ai_call))
+        # 🔥 STRONG COOLDOWN (60 sec)
+        if current_time - st.session_state.last_ai_call < 60:
+            remaining = int(60 - (current_time - st.session_state.last_ai_call))
             st.warning(f"⏳ Please wait {remaining}s before next request")
             return
 
@@ -52,20 +66,21 @@ Give helpful financial advice based on this data.
 
                 response = model.generate_content(context + question)
 
-                # ✅ SAVE TIME AFTER SUCCESS
+                # ✅ SAVE STATE (VERY IMPORTANT)
                 st.session_state.last_ai_call = time.time()
+                st.session_state.last_question = question
 
                 if response and hasattr(response, "text"):
+                    st.session_state.last_response = response.text
                     st.write(response.text)
                 else:
                     st.warning("No response generated")
 
         except Exception as e:
 
-            # ✅ HANDLE QUOTA ERROR CLEANLY
             if "429" in str(e):
-                st.error("🚫 Rate limit reached. Please wait ~40 seconds.")
+                st.error("🚫 Rate limit hit. Wait 1 minute or reduce usage.")
             else:
                 st.error("❌ AI Assistant failed")
 
-            st.code(str(e))   # shows real error
+            st.code(str(e))
