@@ -3,7 +3,7 @@ import google.generativeai as genai
 from config import GOOGLE_API_KEYS
 
 
-# 🔥 MUST BE ABOVE (IMPORTANT)
+# ---------------- FALLBACK ----------------
 def fallback_advice(income, budget, total, question):
 
     st.subheader("💡 Smart Financial Suggestions")
@@ -59,22 +59,22 @@ def fallback_advice(income, budget, total, question):
     st.success(f"💰 Savings: ₹{savings}")
 
 
-# 🔥 MAIN FUNCTION
+# ---------------- MAIN FUNCTION ----------------
 def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # SESSION STATE
-    if "ai_input" not in st.session_state:
-        st.session_state.ai_input = ""
+    # 🔥 UNIQUE KEY SWITCH (IMPORTANT FIX)
+    if "input_key" not in st.session_state:
+        st.session_state.input_key = "input_1"
 
-    # INPUT
+    # INPUT FIELD
     question = st.text_input(
         "Ask about your finances",
-        key="ai_input"
+        key=st.session_state.input_key
     )
 
-    # BUTTONS (ALIGNED)
+    # BUTTONS
     col1, col2, col3 = st.columns([1,1,6])
 
     with col1:
@@ -83,9 +83,10 @@ def ai_financial_assistant(income, budget, total):
     with col2:
         clear_clicked = st.button("❌ Clear")
 
-    # CLEAR BUTTON FIX
+    # 🔥 CLEAR BUTTON (SAFE METHOD)
     if clear_clicked:
-        st.session_state.ai_input = ""
+        # change key → resets input automatically
+        st.session_state.input_key = "input_2" if st.session_state.input_key == "input_1" else "input_1"
         st.rerun()
 
     # ASK BUTTON
@@ -95,11 +96,13 @@ def ai_financial_assistant(income, budget, total):
             st.warning("Please enter a question")
             return
 
-        # ✅ SPINNER ONLY FOR FALLBACK
+        # SPINNER
         with st.spinner("Analyzing your finances... 🤔"):
+
+            # instant suggestions
             fallback_advice(income, budget, total, question)
 
-        # 🔥 TRY AI WITHOUT SPINNER (NO HANG)
+        # TRY AI (NO BLOCKING)
         try:
             genai.configure(api_key=GOOGLE_API_KEYS[0])
             model = genai.GenerativeModel("gemini-2.5-flash")
