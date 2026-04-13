@@ -12,50 +12,47 @@ def fallback_advice(income, budget, total, question):
 
     savings = income - total
 
-    suggestions = []
-
-    # 🔥 Generate multiple suggestions
+    # 🔥 suggestions
     if total > budget:
         suggestions = [
             "🚨 You are overspending. Cut down unnecessary expenses",
-            "🛑 Avoid shopping and entertainment for a few days",
+            "🛑 Avoid shopping and entertainment",
             "📊 Track every expense daily",
-            "🍔 Reduce food delivery / outside food",
-            "💡 Focus only on essential needs",
-            "📉 Try to bring spending below budget immediately"
+            "🍔 Reduce outside food",
+            "💡 Focus on essential needs",
+            "📉 Bring spending below budget"
         ]
 
     elif total > 0.8 * budget:
         suggestions = [
-            "⚠️ You are close to your budget limit",
-            "📊 Monitor daily spending carefully",
+            "⚠️ You are close to your budget",
+            "📊 Monitor daily spending",
             "🛍 Avoid impulse purchases",
             "🍽 Reduce eating out",
-            "📅 Plan remaining month expenses",
-            "💡 Try to save at least small amount"
+            "📅 Plan remaining expenses",
+            "💡 Save small amounts"
         ]
 
     elif total > 0.5 * budget:
         suggestions = [
-            "👍 Your spending is moderate",
-            "💰 Try increasing your savings",
-            "📊 Optimize unnecessary expenses",
+            "👍 Spending is moderate",
+            "💰 Increase savings",
+            "📊 Optimize expenses",
             "🛍 Avoid luxury purchases",
-            "📈 Start small investments",
-            "💡 Plan ahead for upcoming expenses"
+            "📈 Start investing",
+            "💡 Plan future expenses"
         ]
 
     else:
         suggestions = [
             "🎉 Excellent financial management!",
-            "💰 You are saving well",
-            "📈 Consider investing your savings",
-            "🛡 Build an emergency fund",
-            "📊 Track spending for consistency",
-            "🚀 Explore passive income ideas"
+            "💰 Saving well",
+            "📈 Consider investing",
+            "🛡 Build emergency fund",
+            "📊 Track consistency",
+            "🚀 Explore passive income"
         ]
 
-    # ✅ Show all suggestions
     for s in suggestions:
         st.write("•", s)
 
@@ -66,23 +63,27 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # 🔥 SESSION STATE FOR INPUT
-    if "ai_input" not in st.session_state:
-        st.session_state.ai_input = ""
+    # 🔥 CLEAR FLAG (IMPORTANT FIX)
+    if "clear_input" not in st.session_state:
+        st.session_state.clear_input = False
+
+    # 🔥 INPUT FIELD
+    question = st.text_input(
+        "Ask about your finances",
+        value="" if st.session_state.clear_input else "",
+        key="ai_input"
+    )
 
     col1, col2 = st.columns([4,1])
 
-    with col1:
-        question = st.text_input(
-            "Ask about your finances",
-            key="ai_input"
-        )
-
-    # 🔥 CLEAR BUTTON
     with col2:
         if st.button("❌ Clear"):
-            st.session_state.ai_input = ""
+            st.session_state.clear_input = True
             st.rerun()
+
+    # RESET FLAG AFTER RERUN
+    if st.session_state.clear_input:
+        st.session_state.clear_input = False
 
     # 🔥 ASK BUTTON
     if st.button("Ask AI"):
@@ -91,13 +92,13 @@ def ai_financial_assistant(income, budget, total):
             st.warning("Please enter a question")
             return
 
-        # 🔥 SPINNER (LOADING EFFECT)
+        # 🔥 SPINNER
         with st.spinner("Analyzing your finances... 🤔"):
 
-            # ⚡ Show fallback instantly
+            # ⚡ INSTANT FALLBACK
             fallback_advice(income, budget, total, question)
 
-            # 🔥 Try AI silently
+            # 🔥 TRY AI (OPTIONAL)
             try:
                 genai.configure(api_key=GOOGLE_API_KEYS[0])
                 model = genai.GenerativeModel("gemini-2.5-flash")
