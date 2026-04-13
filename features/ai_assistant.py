@@ -1,7 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEYS
-import concurrent.futures
+import time
 
 
 # ---------------- FALLBACK ----------------
@@ -17,8 +17,8 @@ def fallback_advice(income, budget, total, question):
 
     if total > budget:
         suggestions = [
-            "🚨 You are overspending. Cut down unnecessary expenses",
-            "🛑 Avoid shopping and entertainment",
+            "🚨 You are overspending. Cut unnecessary expenses",
+            "🛑 Avoid shopping & entertainment",
             "📊 Track daily expenses",
             "🍔 Reduce outside food",
             "💡 Focus on essentials",
@@ -27,7 +27,7 @@ def fallback_advice(income, budget, total, question):
 
     elif total > 0.8 * budget:
         suggestions = [
-            "⚠️ Near budget limit",
+            "⚠️ Close to budget limit",
             "📊 Monitor spending",
             "🛍 Avoid impulse buying",
             "🍽 Reduce eating out",
@@ -61,17 +61,19 @@ def fallback_advice(income, budget, total, question):
     st.success(f"💰 Savings: ₹{savings}")
 
 
-# ---------------- AI FUNCTION ----------------
+# ---------------- AI CALL ----------------
 
-def get_ai_response(context, question):
+def try_ai(context, question):
+    try:
+        genai.configure(api_key=GOOGLE_API_KEYS[0])
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
-    genai.configure(api_key=GOOGLE_API_KEYS[0])
-    model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(context + question)
 
-    response = model.generate_content(context + question)
-
-    if response and hasattr(response, "text"):
-        return response.text
+        if response and hasattr(response, "text"):
+            return response.text
+    except:
+        return None
 
     return None
 
@@ -82,42 +84,44 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # SESSION STATE INIT
     if "ai_input" not in st.session_state:
         st.session_state["ai_input"] = ""
 
-    # 🔥 HANDLE CLEAR SAFELY (IMPORTANT FIX)
-    if st.session_state.get("clear_ai", False):
-        st.session_state["ai_input"] = ""
-        st.session_state["clear_ai"] = False
+    if "ask_trigger" not in st.session_state:
+        st.session_state["ask_trigger"] = False
 
-    # 🔥 CLEAN LAYOUT
-    col1, col2, col3 = st.columns([6,1,1])
+    # ---------------- INPUT ----------------
+
+    question = st.text_input(
+        "Ask about your finances",
+        key="ai_input"
+    )
+
+    # ---------------- BUTTONS (FIXED POSITION) ----------------
+
+    col1, col2 = st.columns([1,1])
 
     with col1:
-        question = st.text_input(
-            "Ask about your finances",
-            key="ai_input"
-        )
+        if st.button("Ask AI"):
+            st.session_state["ask_trigger"] = True
 
     with col2:
-        ask_clicked = st.button("Ask AI")
-
-    with col3:
         if st.button("❌ Clear"):
-            st.session_state["clear_ai"] = True
+            st.session_state["ai_input"] = ""
+            st.session_state["ask_trigger"] = False
             st.rerun()
 
     # ENTER KEY SUPPORT
-    if question and not ask_clicked:
-        ask_clicked = True
+    if question and not st.session_state["ask_trigger"]:
+        st.session_state["ask_trigger"] = True
 
     # ---------------- EXECUTION ----------------
 
-    if ask_clicked:
+    if st.session_state["ask_trigger"]:
 
         if not question.strip():
             st.warning("Please enter a question")
+            st.session_state["ask_trigger"] = False
             return
 
         context = f"""
@@ -128,23 +132,23 @@ Spending: {total}
 
         result = None
 
-        # 🔥 SPINNER ONLY DURING LOADING
+        # 🔥 MANUAL TIME CONTROL (NO FREEZE)
+        start_time = time.time()
+
         with st.spinner("Analyzing your finances... 🤔"):
 
-            try:
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(get_ai_response, context, question)
+            while time.time() - start_time < 10:
+                result = try_ai(context, question)
 
-                    try:
-                        result = future.result(timeout=10)  # ⏱️ 10 sec
+                if result:
+                    break
 
-                    except concurrent.futures.TimeoutError:
-                        result = None
+                time.sleep(1)
 
-            except:
-                result = None
+        # 🔥 STOP TRIGGER → FIX SPINNER LOOP
+        st.session_state["ask_trigger"] = False
 
-        # 🔥 AFTER SPINNER → SHOW RESULT
+        # ---------------- OUTPUT ----------------
 
         if result:
             st.subheader("🤖 AI Insight")
