@@ -1,7 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEYS
-import concurrent.futures
+import threading
+import time
 
 
 # ---------------- FALLBACK ----------------
@@ -61,9 +62,10 @@ def fallback_advice(income, budget, total, question):
     st.success(f"💰 Savings: ₹{savings}")
 
 
-# ---------------- AI CALL ----------------
+# ---------------- AI BACKGROUND FUNCTION ----------------
 
-def get_ai_response(context, question):
+def run_ai(context, question, result_container):
+
     try:
         genai.configure(api_key=GOOGLE_API_KEYS[0])
         model = genai.GenerativeModel("gemini-2.5-flash")
@@ -71,11 +73,9 @@ def get_ai_response(context, question):
         response = model.generate_content(context + question)
 
         if response and hasattr(response, "text"):
-            return response.text
+            result_container["result"] = response.text
     except:
-        return None
-
-    return None
+        result_container["result"] = None
 
 
 # ---------------- MAIN ----------------
@@ -84,25 +84,25 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    # -------- SESSION STATE --------
+    # SESSION STATE
     if "ai_input" not in st.session_state:
         st.session_state.ai_input = ""
 
     if "clear_flag" not in st.session_state:
         st.session_state.clear_flag = False
 
-    # -------- HANDLE CLEAR SAFELY --------
+    # CLEAR HANDLING
     if st.session_state.clear_flag:
         st.session_state.ai_input = ""
         st.session_state.clear_flag = False
 
-    # -------- INPUT --------
+    # INPUT
     question = st.text_input(
         "Ask about your finances",
         key="ai_input"
     )
 
-    # -------- BUTTONS (PROPER POSITION) --------
+    # BUTTONS
     col1, col2 = st.columns([1,1])
 
     with col1:
@@ -113,11 +113,12 @@ def ai_financial_assistant(income, budget, total):
             st.session_state.clear_flag = True
             st.rerun()
 
-    # ENTER KEY SUPPORT
+    # ENTER SUPPORT
     if question and not ask_clicked:
         ask_clicked = True
 
-    # -------- EXECUTION --------
+    # ---------------- EXECUTION ----------------
+
     if ask_clicked:
 
         if not question.strip():
@@ -130,24 +131,23 @@ Budget: {budget}
 Spending: {total}
 """
 
-        result = None
+        result_container = {"result": None}
 
-        # 🔥 THREAD + TIMEOUT (KEY FIX)
+        # 🔥 START AI IN BACKGROUND
+        thread = threading.Thread(
+            target=run_ai,
+            args=(context, question, result_container)
+        )
+        thread.start()
+
+        # 🔥 FIXED 10 SECOND SPINNER (INDEPENDENT)
         with st.spinner("Analyzing your finances... 🤔"):
+            time.sleep(10)
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(get_ai_response, context, question)
+        # 🔥 AFTER 10 SECONDS → CHECK RESULT
 
-                try:
-                    # ⏱️ WAIT MAX 10 SECONDS
-                    result = future.result(timeout=10)
-
-                except concurrent.futures.TimeoutError:
-                    result = None
-
-        # -------- OUTPUT --------
-        if result:
+        if result_container["result"]:
             st.subheader("🤖 AI Insight")
-            st.write(result)
+            st.write(result_container["result"])
         else:
             fallback_advice(income, budget, total, question)
