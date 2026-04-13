@@ -1,9 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from config import GOOGLE_API_KEYS
-import time
 
-# CREATE MODELS FOR EACH API KEY
+# CREATE MODELS FOR EACH KEY
 models = []
 
 for key in GOOGLE_API_KEYS:
@@ -40,10 +39,13 @@ Give helpful financial advice based on this data.
             response_text = None
             error_message = None
 
-            # 🔥 TRY ALL API KEYS ONE BY ONE
-            for i, model in enumerate(models):
+            # 🔥 TRY ALL KEYS
+            for i, key in enumerate(GOOGLE_API_KEYS):
 
                 try:
+                    genai.configure(api_key=key)
+                    model = genai.GenerativeModel("gemini-2.5-flash")
+
                     response = model.generate_content(context + question)
 
                     if response and hasattr(response, "text"):
@@ -53,7 +55,6 @@ Give helpful financial advice based on this data.
                 except Exception as e:
                     error_message = str(e)
 
-                    # Only skip if quota error
                     if "429" in error_message:
                         continue
                     else:
@@ -61,11 +62,9 @@ Give helpful financial advice based on this data.
                         st.code(error_message)
                         return
 
-            # ✅ SUCCESS
             if response_text:
                 st.success(f"✅ Response from API Key {i+1}")
                 st.write(response_text)
-
             else:
                 st.error("🚫 All API keys exhausted for today")
                 st.code(error_message)
