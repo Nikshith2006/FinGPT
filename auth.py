@@ -5,9 +5,6 @@ import requests
 from dotenv import load_dotenv
 from streamlit_oauth import OAuth2Component
 
-# ✅ NEW: import Google Sheets
-from database import users_sheet
-
 load_dotenv()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -38,13 +35,7 @@ def login():
     unsafe_allow_html=True
     )
 
-    # ✅ LOAD FROM GOOGLE SHEETS
-    users = pd.DataFrame(users_sheet.get_all_records())
-
-    # NORMALIZE USER DATA
-    if not users.empty:
-        users["Name"] = users["Name"].astype(str).str.strip().str.lower()
-        users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
+    users = pd.read_csv("data/users.csv")
 
     # CENTER LOGIN CARD
     col1, col2, col3 = st.columns([1,2,1])
@@ -52,34 +43,35 @@ def login():
     with col2:
 
         name = st.text_input("👤 Name")
+
         contact = st.text_input("📧 Email or Phone")
 
         if st.button("Login", use_container_width=True):
 
-            name_clean = name.strip().lower()
-            contact_clean = contact.strip().lower()
-
             existing_user = users[
-                (users["Name"] == name_clean) &
-                (users["Contact"] == contact_clean)
+                (users["Name"] == name) &
+                (users["Contact"] == contact)
             ]
 
             if not existing_user.empty:
 
-                st.session_state.user = name_clean
+                st.session_state.user = name
                 st.rerun()
 
             else:
 
-                # ✅ SAVE TO GOOGLE SHEETS
-                users_sheet.append_row([
-                    name_clean,
-                    contact_clean,
-                    0,
-                    0
-                ])
+                new_user = pd.DataFrame({
+                    "Name":[name],
+                    "Contact":[contact],
+                    "MonthlyIncome":[0],
+                    "MonthlyBudget":[0]
+                })
 
-                st.session_state.user = name_clean
+                users = pd.concat([users,new_user],ignore_index=True)
+
+                users.to_csv("data/users.csv",index=False)
+
+                st.session_state.user = name
                 st.rerun()
 
         # OR divider
@@ -92,56 +84,53 @@ def login():
         unsafe_allow_html=True
         )
 
-        # GOOGLE LOGIN BUTTON
+        # GOOGLE LOGIN BUTTON (CENTERED)
         result = oauth2.authorize_button(
             name="Login with Google",
             icon="https://www.google.com/favicon.ico",
+
+            # Local run
             redirect_uri="https://fingpt20.streamlit.app",
+
             scope="openid email profile",
             key="google",
+
             use_container_width=True
         )
 
         if result and "token" in result:
 
-            # 🔥 UPDATED API (IMPORTANT)
             userinfo = requests.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
+                "https://www.googleapis.com/oauth2/v1/userinfo",
                 headers={
                     "Authorization": f"Bearer {result['token']['access_token']}"
                 },
             ).json()
 
-            # ✅ ALWAYS GET REAL GOOGLE NAME
-            name = userinfo.get("name", "").strip()
-            email = userinfo.get("email", "").strip().lower()
+            name = userinfo["name"]
+            email = userinfo["email"]
 
-            # ❌ If still no name (rare case)
-            if not name:
-                st.error("Unable to fetch name from Google. Try again.")
-                return
-
-            name_clean = name.lower()
-
-            users = pd.DataFrame(users_sheet.get_all_records())
-
-            if not users.empty:
-                users["Name"] = users["Name"].astype(str).str.strip().str.lower()
-                users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
+            users = pd.read_csv("data/users.csv")
 
             existing_user = users[
-                (users["Name"] == name_clean) &
+                (users["Name"] == name) &
                 (users["Contact"] == email)
             ]
 
             if existing_user.empty:
 
-                users_sheet.append_row([
-                    name_clean,
-                    email,
-                    0,
-                    0
-                ])
+                new_user = pd.DataFrame({
+                    "Name":[name],
+                    "Contact":[email],
+                    "MonthlyIncome":[0],
+                    "MonthlyBudget":[0]
+                })
 
-            st.session_state.user = name_clean
+                users = pd.concat([users,new_user],ignore_index=True)
+
+                users.to_csv("data/users.csv",index=False)
+
+            st.session_state.user = name
+
             st.rerun()
+
