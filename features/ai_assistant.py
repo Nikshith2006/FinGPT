@@ -1,11 +1,17 @@
 import streamlit as st
 import google.generativeai as genai
-from config import GOOGLE_API_KEY
+from config import GOOGLE_API_KEYS
+import time
 
+# CREATE MODELS FOR EACH API KEY
+models = []
 
-genai.configure(api_key=GOOGLE_API_KEY)
-
-model = genai.GenerativeModel("gemini-2.5-flash")
+for key in GOOGLE_API_KEYS:
+    try:
+        genai.configure(api_key=key)
+        models.append(genai.GenerativeModel("gemini-2.5-flash"))
+    except:
+        pass
 
 
 def ai_financial_assistant(income, budget, total):
@@ -14,7 +20,9 @@ def ai_financial_assistant(income, budget, total):
 
     question = st.text_input("Ask about your finances")
 
-    if question:
+    ask = st.button("Ask AI")
+
+    if ask and question and question.strip():
 
         context = f"""
 You are a personal finance assistant.
@@ -27,13 +35,37 @@ Current Spending: {total}
 Give helpful financial advice based on this data.
 """
 
-        try:
+        with st.spinner("Thinking... 🤔"):
 
-            response = model.generate_content(context + question)
+            response_text = None
+            error_message = None
 
-            st.write(response.text)
+            # 🔥 TRY ALL API KEYS ONE BY ONE
+            for i, model in enumerate(models):
 
-        except Exception as e:
+                try:
+                    response = model.generate_content(context + question)
 
-            st.error("AI Assistant failed")
-            st.write(e)
+                    if response and hasattr(response, "text"):
+                        response_text = response.text
+                        break
+
+                except Exception as e:
+                    error_message = str(e)
+
+                    # Only skip if quota error
+                    if "429" in error_message:
+                        continue
+                    else:
+                        st.error("❌ AI Assistant failed")
+                        st.code(error_message)
+                        return
+
+            # ✅ SUCCESS
+            if response_text:
+                st.success(f"✅ Response from API Key {i+1}")
+                st.write(response_text)
+
+            else:
+                st.error("🚫 All API keys exhausted for today")
+                st.code(error_message)
