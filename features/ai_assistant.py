@@ -84,11 +84,20 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
+    # SAFE SESSION STATE INIT
     if "ai_input" not in st.session_state:
-        st.session_state["ai_input"] = ""
+        st.session_state.ai_input = ""
 
-    if "ask_trigger" not in st.session_state:
-        st.session_state["ask_trigger"] = False
+    if "ask_clicked" not in st.session_state:
+        st.session_state.ask_clicked = False
+
+    if "clear_clicked" not in st.session_state:
+        st.session_state.clear_clicked = False
+
+    # 🔥 HANDLE CLEAR SAFELY BEFORE INPUT
+    if st.session_state.clear_clicked:
+        st.session_state.ai_input = ""
+        st.session_state.clear_clicked = False
 
     # ---------------- INPUT ----------------
 
@@ -97,31 +106,31 @@ def ai_financial_assistant(income, budget, total):
         key="ai_input"
     )
 
-    # ---------------- BUTTONS (FIXED POSITION) ----------------
+    # ---------------- BUTTONS ----------------
 
     col1, col2 = st.columns([1,1])
 
     with col1:
         if st.button("Ask AI"):
-            st.session_state["ask_trigger"] = True
+            st.session_state.ask_clicked = True
 
     with col2:
         if st.button("❌ Clear"):
-            st.session_state["ai_input"] = ""
-            st.session_state["ask_trigger"] = False
+            st.session_state.clear_clicked = True
             st.rerun()
 
     # ENTER KEY SUPPORT
-    if question and not st.session_state["ask_trigger"]:
-        st.session_state["ask_trigger"] = True
+    if question and not st.session_state.ask_clicked:
+        st.session_state.ask_clicked = True
 
     # ---------------- EXECUTION ----------------
 
-    if st.session_state["ask_trigger"]:
+    if st.session_state.ask_clicked:
+
+        st.session_state.ask_clicked = False  # 🔥 prevent loop
 
         if not question.strip():
             st.warning("Please enter a question")
-            st.session_state["ask_trigger"] = False
             return
 
         context = f"""
@@ -132,21 +141,19 @@ Spending: {total}
 
         result = None
 
-        # 🔥 MANUAL TIME CONTROL (NO FREEZE)
-        start_time = time.time()
-
+        # 🔥 SAFE TIME LIMIT
         with st.spinner("Analyzing your finances... 🤔"):
 
-            while time.time() - start_time < 10:
+            start = time.time()
+
+            try:
                 result = try_ai(context, question)
+            except:
+                result = None
 
-                if result:
-                    break
-
-                time.sleep(1)
-
-        # 🔥 STOP TRIGGER → FIX SPINNER LOOP
-        st.session_state["ask_trigger"] = False
+            # ⏱️ If takes too long → fallback
+            if time.time() - start > 10:
+                result = None
 
         # ---------------- OUTPUT ----------------
 
