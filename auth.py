@@ -5,6 +5,9 @@ import requests
 from dotenv import load_dotenv
 from streamlit_oauth import OAuth2Component
 
+# ✅ NEW: import Google Sheets
+from database import users_sheet
+
 load_dotenv()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -35,7 +38,8 @@ def login():
     unsafe_allow_html=True
     )
 
-    users = pd.read_csv("data/users.csv")
+    # ✅ LOAD USERS FROM GOOGLE SHEETS (instead of CSV)
+    users = pd.DataFrame(users_sheet.get_all_records())
 
     # CENTER LOGIN CARD
     col1, col2, col3 = st.columns([1,2,1])
@@ -43,7 +47,6 @@ def login():
     with col2:
 
         name = st.text_input("👤 Name")
-
         contact = st.text_input("📧 Email or Phone")
 
         if st.button("Login", use_container_width=True):
@@ -60,16 +63,13 @@ def login():
 
             else:
 
-                new_user = pd.DataFrame({
-                    "Name":[name],
-                    "Contact":[contact],
-                    "MonthlyIncome":[0],
-                    "MonthlyBudget":[0]
-                })
-
-                users = pd.concat([users,new_user],ignore_index=True)
-
-                users.to_csv("data/users.csv",index=False)
+                # ✅ SAVE TO GOOGLE SHEETS (instead of CSV)
+                users_sheet.append_row([
+                    name,
+                    contact,
+                    0,
+                    0
+                ])
 
                 st.session_state.user = name
                 st.rerun()
@@ -100,17 +100,19 @@ def login():
 
         if result and "token" in result:
 
+            # ✅ UPDATED API (gets real name properly)
             userinfo = requests.get(
-                "https://www.googleapis.com/oauth2/v1/userinfo",
+                "https://www.googleapis.com/oauth2/v2/userinfo",
                 headers={
                     "Authorization": f"Bearer {result['token']['access_token']}"
                 },
             ).json()
 
-            name = userinfo["name"]
-            email = userinfo["email"]
+            name = userinfo.get("name", "")
+            email = userinfo.get("email", "")
 
-            users = pd.read_csv("data/users.csv")
+            # ✅ RELOAD USERS FROM SHEETS
+            users = pd.DataFrame(users_sheet.get_all_records())
 
             existing_user = users[
                 (users["Name"] == name) &
@@ -119,18 +121,14 @@ def login():
 
             if existing_user.empty:
 
-                new_user = pd.DataFrame({
-                    "Name":[name],
-                    "Contact":[email],
-                    "MonthlyIncome":[0],
-                    "MonthlyBudget":[0]
-                })
-
-                users = pd.concat([users,new_user],ignore_index=True)
-
-                users.to_csv("data/users.csv",index=False)
+                # ✅ SAVE TO GOOGLE SHEETS
+                users_sheet.append_row([
+                    name,
+                    email,
+                    0,
+                    0
+                ])
 
             st.session_state.user = name
 
             st.rerun()
-
