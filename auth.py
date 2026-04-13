@@ -104,22 +104,24 @@ def login():
 
         if result and "token" in result:
 
+            # 🔥 UPDATED API (IMPORTANT)
             userinfo = requests.get(
-                "https://www.googleapis.com/oauth2/v1/userinfo",
+                "https://www.googleapis.com/oauth2/v2/userinfo",
                 headers={
                     "Authorization": f"Bearer {result['token']['access_token']}"
                 },
             ).json()
 
-            # 🔥 FIX: SAFELY GET NAME
-            raw_name = userinfo.get("name")
+            # ✅ ALWAYS GET REAL GOOGLE NAME
+            name = userinfo.get("name", "").strip()
             email = userinfo.get("email", "").strip().lower()
 
-            if raw_name and raw_name.strip():
-                name = raw_name.strip().lower()
-            else:
-                # ✅ fallback: extract from email
-                name = email.split("@")[0].replace(".", " ").strip().lower()
+            # ❌ If still no name (rare case)
+            if not name:
+                st.error("Unable to fetch name from Google. Try again.")
+                return
+
+            name_clean = name.lower()
 
             users = pd.DataFrame(users_sheet.get_all_records())
 
@@ -128,18 +130,18 @@ def login():
                 users["Contact"] = users["Contact"].astype(str).str.strip().str.lower()
 
             existing_user = users[
-                (users["Name"] == name) &
+                (users["Name"] == name_clean) &
                 (users["Contact"] == email)
             ]
 
             if existing_user.empty:
 
                 users_sheet.append_row([
-                    name,
+                    name_clean,
                     email,
                     0,
                     0
                 ])
 
-            st.session_state.user = name
+            st.session_state.user = name_clean
             st.rerun()
