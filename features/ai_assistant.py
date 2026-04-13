@@ -8,13 +8,12 @@ def fallback_advice(income, budget, total, question):
     st.subheader("💡 Smart Financial Suggestions")
 
     if "hi" in question.lower():
-        st.write("👋 Hello! Here's your financial summary:")
+        st.write("👋 Hello! Here's your financial overview:")
 
     if total > budget:
         st.error("🚨 You are overspending!")
-        st.write("• Reduce unnecessary expenses")
     elif total > 0.8 * budget:
-        st.warning("⚠️ Near budget limit")
+        st.warning("⚠️ Close to budget limit")
     else:
         st.success("✅ Good financial control")
 
@@ -25,11 +24,17 @@ def ai_financial_assistant(income, budget, total):
 
     st.subheader("🤖 AI Financial Assistant")
 
-    question = st.text_input("Ask about your finances")
+    question = st.text_input("Ask about your finances", key="ai_input")
 
-    ask = st.button("Ask AI")
+    # 🔥 STORE BUTTON STATE
+    if "ask_clicked" not in st.session_state:
+        st.session_state.ask_clicked = False
 
-    if ask:
+    if st.button("Ask AI"):
+        st.session_state.ask_clicked = True
+
+    # 🔥 RUN LOGIC AFTER CLICK
+    if st.session_state.ask_clicked:
 
         if not question.strip():
             st.warning("Please enter a question")
@@ -43,17 +48,16 @@ Spending: {total}
 
         prompt = context + question
 
-        # ⏱️ MAX WAIT TIME (VERY IMPORTANT)
-        MAX_WAIT = 3  # seconds
-
-        start_time = time.time()
         response_text = None
 
-        # 🔥 TRY KEYS BUT DON'T WAIT LONG
+        # ⏱️ LIMIT WAIT TIME
+        start = time.time()
+        MAX_WAIT = 3
+
         for key in GOOGLE_API_KEYS:
 
-            if time.time() - start_time > MAX_WAIT:
-                break  # stop waiting
+            if time.time() - start > MAX_WAIT:
+                break
 
             try:
                 genai.configure(api_key=key)
@@ -68,8 +72,11 @@ Spending: {total}
             except:
                 continue
 
-        # ✅ FAST RESPONSE SYSTEM
+        # ✅ ALWAYS SHOW RESULT
         if response_text:
             st.write(response_text)
         else:
             fallback_advice(income, budget, total, question)
+
+        # 🔥 RESET BUTTON STATE (important)
+        st.session_state.ask_clicked = False
